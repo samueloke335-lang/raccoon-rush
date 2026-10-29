@@ -295,6 +295,7 @@
   .nav-item { font-size: 9.5px; }
   .nav-item span { font-size: 20px; }
   .dot { right: calc(50% - 18px); }
+  #taskTabs .chipbtn { white-space: nowrap; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -362,6 +363,7 @@
   <!-- TASKS -->
   <section id="tasksPage" class="page">
     <div class="section-head"><h3>🎯 Task center</h3><span class="gold" id="taskCount" style="font-size:12px;font-weight:700"></span></div>
+    <div class="chips" id="taskTabs" style="margin:0 0 12px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px"></div>
     <div class="card" style="margin-bottom:12px"><div class="bar"><div class="fill" id="taskBar"></div></div></div>
     <div class="tasks" id="allTasks"></div>
     <p class="note">Missions are checked by the server before you get paid.</p>
@@ -794,15 +796,21 @@ function renderWdPreview() {
 
 /* ---------- tasks ---------- */
 const ctOpened = {};
-function taskState(t) { return S.done[t.id] ? "done" : (t.prog() >= t.target ? "ready" : "pending"); }
+const CAT_LABEL = { official: "Official", sponsored: "Sponsored", promoter: "Promoter's", event: "Events" };
+let taskTab = "all";
+const missionOn = id => !(CFG.missions && CFG.missions[id] && CFG.missions[id].on === false);
+const activeTasks = () => TASKS.filter(t => missionOn(t.id));
+const targetOf = t => t.id === "missions" ? Math.max(1, Math.min(4, activeTasks().filter(x => x.id !== "missions").length)) : t.target;
+const timeLeft = ms => { const s = Math.max(0, Math.floor((ms - Date.now()) / 1000)), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d > 0 ? d + "d " + h + "h" : h > 0 ? h + "h " + m + "m" : m + "m"; };
+function taskState(t) { return S.done[t.id] ? "done" : (t.prog() >= targetOf(t) ? "ready" : "pending"); }
 function taskHTML(t) {
-  const st = taskState(t), p = Math.min(t.prog(), t.target); let btn;
+  const st = taskState(t), tg2 = targetOf(t), p = Math.min(t.prog(), tg2); let btn;
   const m = (CFG.missions || {})[t.id] || { rw: t.reward, xp: t.xp };
   if (st === "done") btn = '<button class="btn done" disabled>Done ✓</button>';
   else if (st === "ready") btn = '<button class="btn ready" data-claim="' + t.id + '">' + (t.id === "channel" ? "Verify" : "Claim") + "</button>";
   else if (t.id === "channel") btn = '<button class="btn" data-join="1">Join</button>';
-  else btn = '<button class="btn" disabled>' + fmt(p) + "/" + fmt(t.target) + "</button>";
-  const bar = (t.target > 1 && st !== "done") ? '<div class="bar thin"><div class="fill" style="width:' + (p / t.target * 100) + '%"></div></div>' : "";
+  else btn = '<button class="btn" disabled>' + fmt(p) + "/" + fmt(tg2) + "</button>";
+  const bar = (tg2 > 1 && st !== "done") ? '<div class="bar thin"><div class="fill" style="width:' + (p / tg2 * 100) + '%"></div></div>' : "";
   return '<div class="task ' + (st === "ready" ? "ready" : st === "done" ? "finished" : "") + '"><div class="t-icon">' + t.icon + '</div><div class="t-info"><strong>' + t.title + "</strong><small>+" + fmt(m.rw) + " RP · +" + m.xp + " XP</small>" + bar + "</div>" + btn + "</div>";
 }
 function ctWait(t) {
@@ -817,15 +825,21 @@ function ctHTML(t) {
   else if (!t.started) btn = '<button class="btn" data-ct-open="' + t.id + '">' + (t.kind === "channel" ? "Join" : "Open") + "</button>";
   else if (st === "ready") btn = '<button class="btn ready" data-ct-claim="' + t.id + '">' + (t.kind === "channel" ? "Verify" : "Claim") + "</button>";
   else btn = '<button class="btn" disabled>Wait ' + ctWait(t) + "s</button>";
-  return '<div class="task ' + (st === "ready" ? "ready" : st === "done" ? "finished" : "") + '"><div class="t-icon">' + esc(t.icon) + '</div><div class="t-info"><strong>' + esc(t.title) + "</strong><small>+" + fmt(t.reward) + " RP" + (t.xp ? " · +" + t.xp + " XP" : "") + "</small></div>" + btn + "</div>";
+  const ends = t.endsAt && !t.done ? " · ends in " + timeLeft(t.endsAt) : "";
+  return '<div class="task ' + (st === "ready" ? "ready" : st === "done" ? "finished" : "") + '"><div class="t-icon">' + esc(t.icon) + '</div><div class="t-info"><strong>' + esc(t.title) + "</strong><small>+" + fmt(t.reward) + " RP" + (t.xp ? " · +" + t.xp + " XP" : "") + ends + "</small></div>" + btn + "</div>";
 }
 function renderTasks() {
-  const items = TASKS.map(t => ({ st: taskState(t), html: taskHTML(t) }));
-  (S.ctasks || []).forEach(t => items.push({ st: ctState(t), html: ctHTML(t) }));
+  const items = activeTasks().map(t => ({ cat: "official", st: taskState(t), html: taskHTML(t) }));
+  (S.ctasks || []).forEach(t => items.push({ cat: CAT_LABEL[t.category] ? t.category : "official", st: ctState(t), html: ctHTML(t) }));
   const open = items.filter(x => x.st !== "done");
   $("homeTasks").innerHTML = open.length ? open.slice(0, 3).map(x => x.html).join("") : '<div class="empty">All missions complete. New ones are coming soon.</div>';
+  const counts = { all: open.length };
+  Object.keys(CAT_LABEL).forEach(k => { counts[k] = open.filter(x => x.cat === k).length; });
+  $("taskTabs").innerHTML = [["all", "All"], ["official", "Official"], ["sponsored", "Sponsored"], ["promoter", "Promoter's"], ["event", "Events"]]
+    .map(([k, l]) => '<button class="chipbtn ' + (taskTab === k ? "on" : "") + '" data-ttab="' + k + '">' + l + (counts[k] ? " (" + counts[k] + ")" : "") + "</button>").join("");
   const o = { ready: 0, pending: 1, done: 2 };
-  $("allTasks").innerHTML = items.slice().sort((a, b) => o[a.st] - o[b.st]).map(x => x.html).join("");
+  const shown = items.filter(x => taskTab === "all" || x.cat === taskTab).sort((a, b) => o[a.st] - o[b.st]);
+  $("allTasks").innerHTML = shown.length ? shown.map(x => x.html).join("") : '<div class="empty">' + (taskTab === "event" ? "No events right now. Check back soon." : "No tasks in this group yet.") + "</div>";
   const dn = items.filter(x => x.st === "done").length;
   $("taskCount").textContent = dn + " / " + items.length + " complete";
   $("taskBar").style.width = (items.length ? dn / items.length * 100 : 0) + "%";
@@ -878,6 +892,18 @@ function renderAds() {
   if (today >= limit) { b.disabled = true; b.classList.remove("ready"); b.textContent = "Daily limit reached"; }
   else if (left > 0) { b.disabled = true; b.classList.remove("ready"); b.textContent = "Next ad in " + left + "s"; }
   else { b.disabled = false; b.classList.add("ready"); b.textContent = "▶ Watch Ad 1 (+" + fmt(CFG.adReward || 0) + " RP)"; }
+}
+
+/* ---------- automatic pop-up ads ---------- */
+let autoAdsStarted = false;
+function startAutoAds() {
+  if (autoAdsStarted || !CFG.adAuto || typeof show_12146551 !== "function") return;
+  autoAdsStarted = true;
+  try {
+    show_12146551({ type: "inApp", inAppSettings: {
+      frequency: CFG.adAutoFrequency || 2, capping: CFG.adAutoCapping == null ? 0.1 : CFG.adAutoCapping,
+      interval: CFG.adAutoInterval == null ? 30 : CFG.adAutoInterval, timeout: CFG.adAutoTimeout == null ? 5 : CFG.adAutoTimeout, everyPage: false } });
+  } catch (e) {}
 }
 
 /* ---------- must-join gate ---------- */
@@ -990,6 +1016,7 @@ document.addEventListener("click", e => {
   if ((el = t.closest("[data-open]"))) { e.preventDefault(); return openLink(el.dataset.open); }
   if ((el = t.closest("[data-claim]"))) return claim(el.dataset.claim);
   if (t.closest("[data-join]")) return joinChannel();
+  if ((el = t.closest("[data-ttab]"))) { taskTab = el.dataset.ttab; return renderTasks(); }
   if ((el = t.closest("[data-ct-open]"))) return ctOpen(el.dataset.ctOpen);
   if ((el = t.closest("[data-ct-claim]"))) return ctClaim(el.dataset.ctClaim);
   if ((el = t.closest("[data-bet]"))) { $("betInput").value = betValue(el.dataset.bet); return; }
@@ -1076,6 +1103,7 @@ function gate(title, text, retry) {
     applyState(r.state); render();
     $("gate").classList.remove("show");
     loadFeed();
+    startAutoAds();
   } catch (e) { if (!e.join) gate("Could not load", e.message, true); }
 })();
 </script>
