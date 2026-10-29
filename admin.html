@@ -288,6 +288,12 @@
   .gate-ico { font-size: 84px; animation: bob 3s ease-in-out infinite; filter: drop-shadow(0 0 26px rgba(255,197,46,.8)); }
   .gate-box h2 { margin: 10px 0 6px; font-size: 20px; }
   .gate-box p { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.55; max-width: 300px; }
+  .chipbtn.on { background: var(--gold); color: #1a1202; box-shadow: 0 0 16px rgba(255,197,46,.6); }
+  .live-dot { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: #ff4d4d; box-shadow: 0 0 10px #ff4d4d; animation: pulse 1.4s ease-in-out infinite; vertical-align: middle; }
+  .bottom-nav { grid-template-columns: repeat(6, 1fr); padding-left: 4px; padding-right: 4px; }
+  .nav-item { font-size: 9.5px; }
+  .nav-item span { font-size: 20px; }
+  .dot { right: calc(50% - 18px); }
   .tabs { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 6px; }
   .tabs .chipbtn { white-space: nowrap; }
   .chipbtn.on { background: var(--gold); color: #1a1202; box-shadow: 0 0 16px rgba(255,197,46,.6); }
@@ -298,6 +304,13 @@
   .stat.ton strong { color: #7cc9ff; text-shadow: 0 0 14px rgba(108,196,255,.6); }
   .stat.warn strong { color: #ffb84a; }
   .addr { cursor: pointer; font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+  .field select, .field textarea { width: 100%; background: rgba(0,0,0,.5); border: 1px solid rgba(255,197,46,.3); color: #fff; border-radius: 11px; padding: 12px; font: inherit; font-size: 13px; }
+  .field textarea { resize: vertical; min-height: 110px; line-height: 1.5; }
+  .field select:focus, .field textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 14px rgba(255,197,46,.35); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .subrow { padding: 12px; border-radius: 14px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); margin-top: 10px; }
+  .subrow .lbl { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+  .linkbtn { border: 0; background: transparent; color: #ff8a8a; font-size: 11px; font-weight: 700; padding: 6px 0 0; }
 </style>
 </head>
 <body>
@@ -317,6 +330,8 @@
     <div class="tabs" id="tabs">
       <button class="chipbtn on" data-tab="overview">Overview</button>
       <button class="chipbtn" data-tab="withdrawals">Withdrawals<i class="count on" id="pendBadge" style="position:static;margin-left:6px;display:none">0</i></button>
+      <button class="chipbtn" data-tab="tasks">Tasks</button>
+      <button class="chipbtn" data-tab="broadcast">Broadcast</button>
       <button class="chipbtn" data-tab="settings">Settings</button>
       <button class="chipbtn" data-tab="users">Users</button>
       <button class="chipbtn" data-tab="security">Password</button>
@@ -331,11 +346,59 @@
       <div id="wlist"></div>
     </div>
 
+    <div id="tab_tasks" class="tab" style="display:none">
+      <button class="btn block ready" id="taskNew">+ Add a task</button>
+      <div class="card" id="taskForm" style="display:none;margin-top:12px">
+        <strong id="taskFormTitle">New task</strong>
+        <div class="field"><label for="t_title">Title (what players see)</label><input id="t_title" type="text" maxlength="80" placeholder="Follow our X page" /></div>
+        <div class="field"><label for="t_icon">Icon (one emoji)</label><input id="t_icon" type="text" maxlength="4" placeholder="⭐" /></div>
+        <div class="field"><label for="t_kind">Task type</label>
+          <select id="t_kind"><option value="link">Open a link (X, YouTube, website…)</option><option value="channel">Join a Telegram channel (verified)</option></select></div>
+        <div class="field"><label for="t_url">Link</label><input id="t_url" type="url" inputmode="url" placeholder="https://" autocomplete="off" /></div>
+        <div class="field" id="t_chat_wrap"><label for="t_chat">Channel ID (only for private channels, like -1001234567890)</label><input id="t_chat" type="text" autocomplete="off" /></div>
+        <div class="field"><label for="t_reward">Reward (RP)</label><input id="t_reward" type="number" inputmode="numeric" /></div>
+        <div class="field"><label for="t_xp">XP</label><input id="t_xp" type="number" inputmode="numeric" value="0" /></div>
+        <div class="field" id="t_wait_wrap"><label for="t_wait">Seconds the player must wait after opening the link</label><input id="t_wait" type="number" inputmode="numeric" value="10" /></div>
+        <div class="field"><label for="t_sort">Order (smaller shows first)</label><input id="t_sort" type="number" inputmode="numeric" value="0" /></div>
+        <label class="field" style="grid-auto-flow:column;justify-content:start;align-items:center;gap:10px"><input id="t_active" type="checkbox" checked style="width:auto" /><span style="font-size:12px">Show this task to players</span></label>
+        <div class="acts" style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn" style="flex:1" id="taskSave">Save task</button>
+          <button class="btn ghost" style="flex:1" id="taskCancel">Cancel</button>
+        </div>
+        <button class="btn ghost block" style="margin-top:10px;display:none" id="taskDelete">Delete this task</button>
+      </div>
+      <div id="tlist"></div>
+    </div>
+
+    <div id="tab_broadcast" class="tab" style="display:none">
+      <div class="card"><strong>Send a message to all players</strong>
+        <div class="muted" style="font-size:11px;line-height:1.5;margin-top:4px">Players get it in Telegram and in the app's notifications. Keep this page open until it finishes.</div>
+        <div class="field"><label for="b_text">Message</label><textarea id="b_text" rows="5" maxlength="3500" placeholder="Write your announcement…"></textarea></div>
+        <div class="field"><label for="b_btn_text">Button text (optional)</label><input id="b_btn_text" type="text" maxlength="30" placeholder="Open the app" /></div>
+        <div class="field"><label for="b_btn_url">Button link (optional)</label><input id="b_btn_url" type="url" inputmode="url" placeholder="https://t.me/…" autocomplete="off" /></div>
+        <button class="btn block ready" style="margin-top:14px" id="bcSend">Send to everyone</button>
+        <div class="preview" id="bcProgress" style="display:none"></div>
+      </div>
+      <div class="section-head"><h3>Recent broadcasts</h3></div>
+      <div id="bcList"></div>
+    </div>
+
     <div id="tab_settings" class="tab" style="display:none">
       <div class="card"><strong>Links</strong><div id="fLinks"></div></div>
-      <div class="card" style="margin-top:10px"><strong>Telegram channel IDs (optional)</strong>
-        <div class="muted" style="font-size:11px;line-height:1.5;margin-top:4px">Leave empty for public channels. For a private channel, enter its ID like -1001234567890. The bot must be an admin of both channels.</div><div id="fIds"></div></div>
-      <div class="card" style="margin-top:10px"><strong>Swap, fees and referrals</strong><div id="fRates"></div></div>
+      <div class="card" style="margin-top:10px"><strong>Must-join channels</strong>
+        <div class="muted" style="font-size:11px;line-height:1.5;margin-top:4px">Players must be in all of these to use the app. The bot must be an admin of each channel. For a private channel, fill in its ID.</div>
+        <div id="mjList"></div>
+        <button class="btn ghost block" style="margin-top:10px" id="mjAdd">+ Add channel</button></div>
+      <div class="card" style="margin-top:10px"><strong>Channel IDs (optional)</strong>
+        <div class="muted" style="font-size:11px;line-height:1.5;margin-top:4px">Leave empty for public channels. For a private channel use an ID like -1001234567890.</div><div id="fIds"></div></div>
+      <div class="card" style="margin-top:10px"><strong>Swap, fees and welcome</strong><div id="fRates"></div></div>
+      <div class="card" style="margin-top:10px"><strong>Invite bonuses</strong>
+        <div class="muted" style="font-size:11px;line-height:1.5;margin-top:4px">Extra RP when a player has invited this many friends.</div>
+        <div id="msList"></div><button class="btn ghost block" style="margin-top:10px" id="msAdd">+ Add bonus</button></div>
+      <div class="card" style="margin-top:10px"><strong>Taps, energy and levels</strong><div id="fTaps"></div></div>
+      <div class="card" style="margin-top:10px"><strong>Daily check-in rewards (RP)</strong><div id="fCheckin"></div></div>
+      <div class="card" style="margin-top:10px"><strong>Mission rewards</strong><div id="fMissions"></div></div>
+      <div class="card" style="margin-top:10px"><strong>Ads</strong><div id="fAds"></div></div>
       <div class="card" style="margin-top:10px"><strong>Game odds</strong><div id="fGame"></div><div class="rtp" id="rtpBox"></div></div>
       <button class="btn block ready" style="margin-top:12px" id="saveBtn">Save settings</button>
     </div>
@@ -357,42 +420,50 @@
 
 <script>
 const API = "https://qcxtajojlkqhgesbciwx.supabase.co/functions/v1/rr-admin";
-const FIELDS = {
+const SCALARS = {
   fLinks: [
     { k: "botLink", l: "Bot link (mini app link ending in ?startapp=)", url: 1 },
     { k: "channelLink", l: "Channel link (Join mission)", url: 1 },
     { k: "payChannelLink", l: "Payment channel link", url: 1 }
   ],
-  fIds: [
-    { k: "channelId", l: "Channel ID", text: 1 },
-    { k: "payChannelId", l: "Payment channel ID", text: 1 }
-  ],
+  fIds: [{ k: "channelId", l: "Channel ID", text: 1 }, { k: "payChannelId", l: "Payment channel ID", text: 1 }],
   fRates: [
-    { k: "swapRate", l: "Swap rate (RP for 1 TON)" },
-    { k: "swapFee", l: "Swap fee (%)" },
-    { k: "withdrawFee", l: "Withdrawal fee (TON)" },
-    { k: "minWithdraw", l: "Minimum withdrawal (TON)" },
-    { k: "refReward", l: "Referral reward (RP)" }
+    { k: "swapRate", l: "Swap rate (RP for 1 TON)" }, { k: "swapFee", l: "Swap fee (%)" },
+    { k: "withdrawFee", l: "Withdrawal fee (TON)" }, { k: "minWithdraw", l: "Minimum withdrawal (TON)" },
+    { k: "refReward", l: "Referral reward (RP per friend)" }, { k: "welcomeBonus", l: "Welcome bonus for new players (RP)" }
+  ],
+  fTaps: [
+    { k: "tapReward", l: "RP per tap at level 1" }, { k: "tapLevelStep", l: "Every how many levels +1 RP per tap (0 = never)" },
+    { k: "tapsPerXp", l: "Taps needed for 1 XP" }, { k: "energyBase", l: "Starting energy" },
+    { k: "energyPerLevel", l: "Extra energy per level" }, { k: "energyRegenSec", l: "Seconds to refill 1 energy" },
+    { k: "xpBase", l: "XP needed for level 2" }, { k: "xpPerLevel", l: "Extra XP needed per level" },
+    { k: "levelBonus", l: "Level-up bonus (RP)" }
+  ],
+  fAds: [
+    { k: "adReward", l: "Reward per ad (RP)" }, { k: "adCooldown", l: "Seconds between ads" },
+    { k: "adDailyLimit", l: "Ads per player per day" }, { k: "adMinWatch", l: "Minimum seconds an ad must run" }
   ],
   fGame: [
-    { k: "winChance", l: "Win chance (%)" },
-    { k: "multiplier", l: "Win multiplier (×)" },
-    { k: "minBet", l: "Minimum bet (RP)" },
-    { k: "maxBet", l: "Maximum bet (RP)" }
+    { k: "winChance", l: "Win chance (%)" }, { k: "multiplier", l: "Win multiplier (×)" },
+    { k: "minBet", l: "Minimum bet (RP)" }, { k: "maxBet", l: "Maximum bet (RP)" }
   ]
 };
+const MISSIONS = [
+  ["channel", "Join the channel"], ["profile", "Open your profile"], ["tap100", "Tap 100 times"],
+  ["level3", "Reach level 3"], ["tap1000", "Tap 1,000 times"], ["missions", "Finish 4 other missions"]
+];
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = n => Math.floor(Number(n)).toLocaleString();
 const fmtTon = n => (Math.round(Number(n) * 1e4) / 1e4).toLocaleString(undefined, { maximumFractionDigits: 4 });
 const short = a => a.length > 14 ? a.slice(0, 6) + "…" + a.slice(-6) : a;
 const when = t => t ? new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
-let token = "", noticeTimer, wstatus = "pending";
+let token = "", noticeTimer, wstatus = "pending", tasksCache = [], bcBusy = false;
 try { token = sessionStorage.getItem("rr_admin_token") || ""; } catch (e) {}
 
 function notify(msg) {
   const el = $("notice"); el.textContent = msg; el.classList.add("show");
-  clearTimeout(noticeTimer); noticeTimer = setTimeout(() => el.classList.remove("show"), 3200);
+  clearTimeout(noticeTimer); noticeTimer = setTimeout(() => el.classList.remove("show"), 3600);
 }
 async function call(action, data) {
   let r, j = null;
@@ -425,6 +496,8 @@ function openTab(name) {
   document.querySelectorAll("#tabs .chipbtn").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
   if (name === "overview") loadOverview();
   if (name === "withdrawals") loadWithdrawals();
+  if (name === "tasks") loadTasks();
+  if (name === "broadcast") loadBroadcasts();
   if (name === "settings") loadSettings();
   if (name === "users") loadUsers();
 }
@@ -468,17 +541,102 @@ async function decide(id, approve) {
   } catch (e) { notify(e.message); }
 }
 
+/* tasks */
+function taskFormShow(t) {
+  $("taskForm").style.display = "block";
+  $("taskFormTitle").textContent = t ? "Edit task" : "New task";
+  $("t_title").value = t ? t.title : ""; $("t_icon").value = t ? t.icon : "⭐";
+  $("t_kind").value = t ? t.kind : "link"; $("t_url").value = t ? t.url : "";
+  $("t_chat").value = t && t.chatId ? t.chatId : ""; $("t_reward").value = t ? t.reward : "";
+  $("t_xp").value = t ? t.xp : 0; $("t_wait").value = t ? t.wait : 10; $("t_sort").value = t ? t.sort : 0;
+  $("t_active").checked = t ? t.active : true;
+  $("taskForm").dataset.id = t ? t.id : "";
+  $("taskDelete").style.display = t ? "block" : "none";
+  taskKindUI(); $("taskForm").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function taskKindUI() {
+  const ch = $("t_kind").value === "channel";
+  $("t_chat_wrap").style.display = ch ? "grid" : "none"; $("t_wait_wrap").style.display = ch ? "none" : "grid";
+}
+async function loadTasks() {
+  try {
+    tasksCache = (await call("tasks")).list;
+    $("tlist").innerHTML = tasksCache.length ? tasksCache.map(t => '<div class="tx"><div class="top"><strong>' + esc(t.icon) + " " + esc(t.title) + '</strong><span class="pill ' + (t.active ? "success" : "rejected") + '">' + (t.active ? "Live" : "Hidden") + "</span></div><small>" + (t.kind === "channel" ? "Join channel" : "Open link") + " · +" + fmt(t.reward) + " RP · +" + t.xp + " XP · " + fmt(t.claims) + ' claimed</small><small>' + esc(t.url) + '</small><div class="acts"><button class="btn ghost" data-tedit="' + t.id + '">Edit</button></div></div>').join("") : '<div class="empty" style="margin-top:10px">No custom tasks yet. Tap "Add a task".</div>';
+  } catch (e) { notify(e.message); }
+}
+async function saveTask() {
+  const task = {
+    id: $("taskForm").dataset.id || null, title: $("t_title").value, icon: $("t_icon").value, kind: $("t_kind").value, url: $("t_url").value.trim(),
+    chatId: $("t_chat").value.trim(), reward: $("t_reward").value.trim(), xp: $("t_xp").value.trim(), wait: $("t_wait").value.trim(),
+    sort: $("t_sort").value.trim(), active: $("t_active").checked
+  };
+  try { await call("task_save", { task }); $("taskForm").style.display = "none"; notify("Task saved."); loadTasks(); } catch (e) { notify(e.message); }
+}
+async function deleteTask() {
+  const id = $("taskForm").dataset.id;
+  if (!id || !confirm("Delete this task? Players who finished it keep their reward.")) return;
+  try { await call("task_delete", { id }); $("taskForm").style.display = "none"; notify("Task deleted."); loadTasks(); } catch (e) { notify(e.message); }
+}
+
+/* broadcast */
+async function runBroadcast(id) {
+  if (bcBusy) return;
+  bcBusy = true; const box = $("bcProgress"); box.style.display = "block"; $("bcSend").disabled = true;
+  try {
+    for (;;) {
+      const r = await call("bc_step", { id });
+      box.innerHTML = (r.finished ? "<b>Done.</b> " : "Sending… ") + "Delivered in Telegram: <b>" + fmt(r.sent) + "</b> of " + fmt(r.total) + (r.failed ? " · could not reach: " + fmt(r.failed) + " (they still see it in the app)" : "");
+      if (r.finished) break;
+    }
+    notify("Broadcast finished.");
+  } catch (e) { box.innerHTML = "Stopped: " + esc(e.message) + ". You can resume it below."; notify(e.message); }
+  bcBusy = false; $("bcSend").disabled = false; loadBroadcasts();
+}
+async function sendBroadcast() {
+  const text = $("b_text").value.trim();
+  if (!text) return notify("Write a message first.");
+  if (!confirm("Send this message to every player now?")) return;
+  try {
+    const r = await call("bc_create", { text, btnText: $("b_btn_text").value, btnUrl: $("b_btn_url").value });
+    $("b_text").value = ""; $("b_btn_text").value = ""; $("b_btn_url").value = "";
+    runBroadcast(r.id);
+  } catch (e) { notify(e.message); }
+}
+async function loadBroadcasts() {
+  try {
+    const list = (await call("bc_list")).list;
+    $("bcList").innerHTML = list.length ? list.map(b => '<div class="tx"><div class="top"><strong>' + esc(b.text.length > 60 ? b.text.slice(0, 60) + "…" : b.text) + '</strong><span class="pill ' + (b.status === "done" ? "success" : "pending") + '">' + (b.status === "done" ? "Sent" : "Running") + "</span></div><small>" + when(b.t) + " · delivered " + fmt(b.sent) + " of " + fmt(b.total) + (b.failed ? " · " + fmt(b.failed) + " not reached" : "") + "</small>" + (b.status !== "done" ? '<div class="acts"><button class="btn" data-bcresume="' + b.id + '">Resume sending</button></div>' : "") + "</div>").join("") : '<div class="empty">No broadcasts yet.</div>';
+  } catch (e) { notify(e.message); }
+}
+
 /* settings */
+const val = (id) => $(id).value.trim();
+function mjRow(c, i) {
+  return '<div class="subrow" data-mj><div class="lbl">Channel ' + (i + 1) + '</div><div class="field"><label>Name players see</label><input class="mj-title" type="text" maxlength="40" value="' + esc(c.title) + '" /></div><div class="field"><label>Channel link</label><input class="mj-link" type="url" inputmode="url" value="' + esc(c.link) + '" placeholder="https://t.me/…" autocomplete="off" /></div><div class="field"><label>Channel ID (private channels only)</label><input class="mj-chat" type="text" value="' + esc(c.chatId || "") + '" autocomplete="off" /></div><button class="linkbtn" data-mjdel="' + i + '">Remove</button></div>';
+}
+function readMJ() { return [...document.querySelectorAll("[data-mj]")].map(r => ({ title: r.querySelector(".mj-title").value.trim(), link: r.querySelector(".mj-link").value.trim(), chatId: r.querySelector(".mj-chat").value.trim() })); }
+function drawMJ(list) { $("mjList").innerHTML = list.length ? list.map(mjRow).join("") : '<div class="muted" style="font-size:12px;margin-top:8px">No required channels.</div>'; }
+function msRow(m, i) {
+  return '<div class="subrow" data-ms><div class="row2"><div class="field"><label>Friends invited</label><input class="ms-n" type="number" inputmode="numeric" value="' + esc(m.n) + '" /></div><div class="field"><label>Bonus (RP)</label><input class="ms-rp" type="number" inputmode="numeric" value="' + esc(m.rp) + '" /></div></div><button class="linkbtn" data-msdel="' + i + '">Remove</button></div>';
+}
+function readMS() { return [...document.querySelectorAll("[data-ms]")].map(r => ({ n: r.querySelector(".ms-n").value.trim(), rp: r.querySelector(".ms-rp").value.trim() })); }
+function drawMS(list) { $("msList").innerHTML = list.map(msRow).join(""); }
 function buildForm() {
-  Object.keys(FIELDS).forEach(id => {
-    $(id).innerHTML = FIELDS[id].map(f => '<div class="field"><label for="cfg_' + f.k + '">' + f.l + '</label><input id="cfg_' + f.k + '" ' + (f.url ? 'type="url" inputmode="url"' : f.text ? 'type="text"' : 'type="number" inputmode="decimal" step="any"') + ' autocomplete="off" autocapitalize="off" spellcheck="false" /></div>').join("");
+  Object.keys(SCALARS).forEach(id => {
+    $(id).innerHTML = SCALARS[id].map(f => '<div class="field"><label for="cfg_' + f.k + '">' + f.l + '</label><input id="cfg_' + f.k + '" ' + (f.url ? 'type="url" inputmode="url"' : f.text ? 'type="text"' : 'type="number" inputmode="decimal" step="any"') + ' autocomplete="off" autocapitalize="off" spellcheck="false" /></div>').join("");
   });
+  $("fCheckin").innerHTML = '<div class="row2">' + [0, 1, 2, 3, 4, 5, 6].map(i => '<div class="field"><label for="ci_' + i + '">Day ' + (i + 1) + '</label><input id="ci_' + i + '" type="number" inputmode="numeric" /></div>').join("") + '<div class="field"><label for="cfg_checkinXp">XP per check-in</label><input id="cfg_checkinXp" type="number" inputmode="numeric" /></div></div>';
+  $("fMissions").innerHTML = MISSIONS.map(([id, label]) => '<div class="subrow"><div class="lbl">' + label + '</div><div class="row2"><div class="field"><label for="ms_' + id + '_rw">Reward (RP)</label><input id="ms_' + id + '_rw" type="number" inputmode="numeric" /></div><div class="field"><label for="ms_' + id + '_xp">XP</label><input id="ms_' + id + '_xp" type="number" inputmode="numeric" /></div></div></div>').join("");
   ["winChance", "multiplier"].forEach(k => $("cfg_" + k).addEventListener("input", updateRTP));
 }
 async function loadSettings() {
   try {
     const cfg = (await call("get_config")).cfg;
-    Object.values(FIELDS).flat().forEach(f => { $("cfg_" + f.k).value = cfg[f.k] == null ? "" : cfg[f.k]; });
+    Object.values(SCALARS).flat().forEach(f => { $("cfg_" + f.k).value = cfg[f.k] == null ? "" : cfg[f.k]; });
+    $("cfg_checkinXp").value = cfg.checkinXp == null ? "" : cfg.checkinXp;
+    (cfg.checkinRewards || []).forEach((v, i) => { $("ci_" + i).value = v; });
+    MISSIONS.forEach(([id]) => { const m = (cfg.missions || {})[id] || {}; $("ms_" + id + "_rw").value = m.rw == null ? "" : m.rw; $("ms_" + id + "_xp").value = m.xp == null ? "" : m.xp; });
+    drawMS(cfg.milestones || []); drawMJ(cfg.mustJoin || []);
     updateRTP();
   } catch (e) { notify(e.message); }
 }
@@ -491,7 +649,11 @@ function updateRTP() {
 }
 async function saveSettings() {
   const cfg = {};
-  Object.values(FIELDS).flat().forEach(f => { cfg[f.k] = $("cfg_" + f.k).value.trim(); });
+  Object.values(SCALARS).flat().forEach(f => { cfg[f.k] = val("cfg_" + f.k); });
+  cfg.checkinXp = val("cfg_checkinXp");
+  cfg.checkinRewards = [0, 1, 2, 3, 4, 5, 6].map(i => val("ci_" + i));
+  cfg.missions = {}; MISSIONS.forEach(([id]) => { cfg.missions[id] = { rw: val("ms_" + id + "_rw"), xp: val("ms_" + id + "_xp") }; });
+  cfg.milestones = readMS(); cfg.mustJoin = readMJ();
   try { await call("save_config", { cfg }); notify("Settings saved. The app uses them right away."); } catch (e) { notify(e.message); }
 }
 
@@ -519,12 +681,24 @@ document.addEventListener("click", e => {
   if ((el = t.closest("[data-approve]"))) return decide(el.dataset.approve, true);
   if ((el = t.closest("[data-reject]"))) return decide(el.dataset.reject, false);
   if ((el = t.closest("[data-copy]"))) { navigator.clipboard && navigator.clipboard.writeText(el.dataset.copy).then(() => notify("Address copied.")).catch(() => {}); return; }
-  if ((el = t.closest("[data-ban]"))) { call("ban", { uid: el.dataset.ban, banned: el.dataset.to === "1" }).then(loadUsers).catch(e => notify(e.message)); }
+  if ((el = t.closest("[data-ban]"))) { call("ban", { uid: el.dataset.ban, banned: el.dataset.to === "1" }).then(loadUsers).catch(e => notify(e.message)); return; }
+  if ((el = t.closest("[data-tedit]"))) return taskFormShow(tasksCache.find(x => String(x.id) === el.dataset.tedit));
+  if ((el = t.closest("[data-bcresume]"))) return runBroadcast(Number(el.dataset.bcresume));
+  if ((el = t.closest("[data-mjdel]"))) { const l = readMJ(); l.splice(Number(el.dataset.mjdel), 1); return drawMJ(l); }
+  if ((el = t.closest("[data-msdel]"))) { const l = readMS(); l.splice(Number(el.dataset.msdel), 1); return drawMS(l); }
 });
 $("loginBtn").addEventListener("click", login);
 $("pw").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
 $("logoutBtn").addEventListener("click", () => logout());
 $("saveBtn").addEventListener("click", saveSettings);
+$("mjAdd").addEventListener("click", () => { const l = readMJ(); if (l.length >= 5) return notify("You can require at most 5 channels."); l.push({ title: "", link: "", chatId: "" }); drawMJ(l); });
+$("msAdd").addEventListener("click", () => { const l = readMS(); if (l.length >= 6) return notify("At most 6 invite bonuses."); l.push({ n: "", rp: "" }); drawMS(l); });
+$("taskNew").addEventListener("click", () => taskFormShow(null));
+$("taskCancel").addEventListener("click", () => { $("taskForm").style.display = "none"; });
+$("taskSave").addEventListener("click", saveTask);
+$("taskDelete").addEventListener("click", deleteTask);
+$("t_kind").addEventListener("change", taskKindUI);
+$("bcSend").addEventListener("click", sendBroadcast);
 $("uGo").addEventListener("click", loadUsers);
 $("uq").addEventListener("keydown", e => { if (e.key === "Enter") loadUsers(); });
 $("npBtn").addEventListener("click", changePw);

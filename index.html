@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#07060a" />
 <title>Raccoon Rush</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://libtl.com/sdk.js" data-zone="12146551" data-sdk="show_12146551"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&display=swap" rel="stylesheet" />
@@ -290,10 +291,14 @@
   .gate-box p { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.55; max-width: 300px; }
   .chipbtn.on { background: var(--gold); color: #1a1202; box-shadow: 0 0 16px rgba(255,197,46,.6); }
   .live-dot { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: #ff4d4d; box-shadow: 0 0 10px #ff4d4d; animation: pulse 1.4s ease-in-out infinite; vertical-align: middle; }
+  .bottom-nav { grid-template-columns: repeat(6, 1fr); padding-left: 4px; padding-right: 4px; }
+  .nav-item { font-size: 9.5px; }
+  .nav-item span { font-size: 20px; }
+  .dot { right: calc(50% - 18px); }
 </style>
 </head>
 <body>
-<div class="gate show" id="gate"><div class="gate-box"><div class="gate-ico">🦝</div><h2 id="gateTitle">Loading…</h2><p id="gateText"></p><button class="btn ready" id="gateRetry" style="display:none">Try again</button></div></div>
+<div class="gate show" id="gate"><div class="gate-box"><div class="gate-ico">🦝</div><h2 id="gateTitle">Loading…</h2><p id="gateText"></p><div id="gateList" style="width:260px;max-width:100%;margin:0 auto 6px"></div><button class="btn ready" id="gateRetry" style="display:none">Try again</button></div></div>
 <canvas id="embers" aria-hidden="true"></canvas>
 <canvas id="confetti" aria-hidden="true"></canvas>
 
@@ -360,6 +365,18 @@
     <div class="card" style="margin-bottom:12px"><div class="bar"><div class="fill" id="taskBar"></div></div></div>
     <div class="tasks" id="allTasks"></div>
     <p class="note">Missions are checked by the server before you get paid.</p>
+  </section>
+
+  <!-- ADS -->
+  <section id="adsPage" class="page">
+    <div class="section-head"><h3>📺 Ads</h3><span class="gold" style="font-size:12px;font-weight:700"><span id="adsToday">0</span> / <span id="adsLimit">20</span> today</span></div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:64px;filter:drop-shadow(0 0 22px rgba(255,197,46,.7))">📺</div>
+      <strong style="font-size:18px">Watch Ad 1</strong>
+      <p class="muted" style="font-size:12px;line-height:1.55;margin:6px 0 14px">Watch a short ad and earn <b class="gold" id="adRewardTxt">10 RP</b>. Stay on the ad until it finishes.</p>
+      <button class="btn block ready" id="adBtn">▶ Watch Ad 1</button>
+    </div>
+    <p class="note">You can watch a new ad every <span id="adCool">30</span> seconds, up to the daily limit.</p>
   </section>
 
   <!-- GAME -->
@@ -497,6 +514,7 @@
 <nav class="bottom-nav" aria-label="Main navigation">
   <button class="nav-item active" data-page="home" data-go="home"><span>🏠</span>Home</button>
   <button class="nav-item" data-page="tasks" data-go="tasks"><span>🎯</span>Tasks<i class="dot" id="taskDot"></i></button>
+  <button class="nav-item" data-page="ads" data-go="ads"><span>📺</span>Ads</button>
   <button class="nav-item" data-page="game" data-go="game"><span>🎰</span>Game</button>
   <button class="nav-item" data-page="referrals" data-go="referrals"><span>👥</span>Friends</button>
   <button class="nav-item" data-page="wallet" data-go="wallet"><span>💰</span>Wallet</button>
@@ -517,7 +535,7 @@
 <script>
 /* Raccoon Rush: mini app (talks to your Supabase edge function) */
 const API = "https://qcxtajojlkqhgesbciwx.supabase.co/functions/v1/rr-api";
-const ENERGY_REGEN_MS = 1500;
+const regenMs = () => Math.max(100, (CFG.energyRegenSec || 1.5) * 1000);
 
 const STAGES = [
   { lvl: 1,  name: "Baby Raccoon",   acc: "",   color: "#ffc52e", rgb: "255,197,46" },
@@ -526,7 +544,7 @@ const STAGES = [
   { lvl: 10, name: "Legend Raccoon", acc: "👑", color: "#ff8a1f", rgb: "255,138,31" },
   { lvl: 15, name: "Mythic Raccoon", acc: "🌟", color: "#7df9ff", rgb: "125,249,255" }
 ];
-const REWARDS = [20, 30, 40, 50, 75, 100, 200];
+const rewards = () => (CFG.checkinRewards && CFG.checkinRewards.length === 7) ? CFG.checkinRewards : [20, 30, 40, 50, 75, 100, 200];
 const joinedClick = () => { try { return localStorage.getItem("rr_join") === "1"; } catch (e) { return false; } };
 const TASKS = [
   { id: "channel", icon: "✈️", title: "Join the official Telegram channel", reward: 50, xp: 10, target: 1, prog: () => joinedClick() ? 1 : 0 },
@@ -546,7 +564,8 @@ const BADGES = [
   { id: "s7",    icon: "🏆", name: "7-day streak", test: () => S.best >= 7 },
   { id: "pay",   icon: "💎", name: "First payout", test: () => S.withdrawals.some(w => w.status === "success") }
 ];
-const MILESTONES = [ { n: 1, icon: "🎟️", rp: 100 }, { n: 5, icon: "🎁", rp: 600 }, { n: 10, icon: "💎", rp: 1500 } ];
+const milestones = () => (CFG.milestones && CFG.milestones.length) ? CFG.milestones : [{ n: 1, rp: 100 }, { n: 5, rp: 600 }, { n: 10, rp: 1500 }];
+const MS_ICONS = ["🎟️", "🎁", "💎", "🏆", "👑", "🚀"];
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -559,7 +578,7 @@ const tg = window.Telegram && window.Telegram.WebApp;
 const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-let S = null, CFG = { swapRate: 10000, swapFee: 2, withdrawFee: 0.05, minWithdraw: 0.5, refReward: 100, winChance: 45, multiplier: 2, minBet: 10, maxBet: 5000, botLink: "", channelLink: "", payChannelLink: "" };
+let S = null, CFG = { swapRate: 10000, swapFee: 2, withdrawFee: 0.05, minWithdraw: 0.5, refReward: 100, winChance: 45, multiplier: 2, minBet: 10, maxBet: 5000, botLink: "", channelLink: "", payChannelLink: "", tapLevelStep: 2, adReward: 10, adDailyLimit: 20, adCooldown: 30, levelBonus: 100, tapsPerXp: 10 };
 let currentPage = "home", working = false, busy = false, pend = 0, flushing = null, flushTimer = null, resetArmed = false;
 
 /* ---------- server ---------- */
@@ -571,12 +590,13 @@ async function api(action, data) {
   let j = null;
   try { j = await r.json(); } catch (e) {}
   if (!j) throw new Error("Server problem. Please try again.");
+  if (j.joinRequired) { showJoinGate(j.channels); const je = new Error(j.error); je.join = true; throw je; }
   if (!j.ok) throw new Error(j.error || "Something went wrong.");
   return j;
 }
 function applyState(st) {
   const u = st.user;
-  S = Object.assign({}, u, { withdrawals: st.withdrawals || [], notifs: st.notifs || [], games: st.games || [], board: st.board || [] });
+  S = Object.assign({}, u, { withdrawals: st.withdrawals || [], notifs: st.notifs || [], games: st.games || [], board: st.board || [], ctasks: st.ctasks || [] });
   CFG = st.cfg;
   if (pend > 0) { S.points += pend * tapValue(); S.taps += pend; S.energy = Math.max(0, S.energy - pend); }
 }
@@ -593,9 +613,9 @@ async function run(fn) {
 }
 
 /* ---------- helpers ---------- */
-const xpNeed = lv => 100 + (lv - 1) * 50;
-const energyMax = () => 100 + (S.level - 1) * 10;
-const tapValue = () => 1 + Math.floor((S.level - 1) / 2);
+const xpNeed = lv => Math.max(1, (CFG.xpBase || 100) + (lv - 1) * (CFG.xpPerLevel == null ? 50 : CFG.xpPerLevel));
+const energyMax = () => Math.max(1, (CFG.energyBase || 100) + (S.level - 1) * (CFG.energyPerLevel == null ? 10 : CFG.energyPerLevel));
+const tapValue = () => Math.max(1, (CFG.tapReward || 1) + (CFG.tapLevelStep > 0 ? Math.floor((S.level - 1) / CFG.tapLevelStep) : 0));
 const stageIndex = () => { let i = 0; STAGES.forEach((s, k) => { if (S.level >= s.lvl) i = k; }); return i; };
 const stage = () => STAGES[stageIndex()];
 const refLink = () => CFG.botLink + "ref_" + S.id;
@@ -635,7 +655,7 @@ function tap(x, y) {
   }
   const v = tapValue();
   S.energy -= 1; S.points += v; S.taps++; pend++;
-  if (S.taps % 10 === 0) { S.xp = Math.min(S.xp + 1, xpNeed(S.level)); renderTasks(); }
+  if (S.taps % (CFG.tapsPerXp || 10) === 0) { S.xp = Math.min(S.xp + 1, xpNeed(S.level)); renderTasks(); }
   haptic();
   $("mascot").animate([{ transform: "scale(1)" }, { transform: "scale(.9) rotate(-3deg)" }, { transform: "scale(1)" }], { duration: 140 });
   const f = document.createElement("div");
@@ -677,18 +697,6 @@ const checkIn = () => run(async () => {
 });
 $("checkInBtn").addEventListener("click", checkIn);
 
-const claim = id => run(async () => {
-  const r = await act("claim", { task: id });
-  notify("Mission claimed: +" + r.reward + " RP"); haptic("ok");
-  if (r.leveled) levelUp();
-  render();
-});
-function joinChannel() {
-  try { localStorage.setItem("rr_join", "1"); } catch (e) {}
-  openLink(CFG.channelLink);
-  notify("Join the channel, then come back and tap Verify.");
-  renderTasks();
-}
 const swap = () => run(async () => {
   const rp = Math.floor(Number($("swapAmt").value));
   if (!(rp > 0)) throw new Error("Enter how many RP to swap.");
@@ -785,32 +793,106 @@ function renderWdPreview() {
 }
 
 /* ---------- tasks ---------- */
+const ctOpened = {};
 function taskState(t) { return S.done[t.id] ? "done" : (t.prog() >= t.target ? "ready" : "pending"); }
 function taskHTML(t) {
   const st = taskState(t), p = Math.min(t.prog(), t.target); let btn;
+  const m = (CFG.missions || {})[t.id] || { rw: t.reward, xp: t.xp };
   if (st === "done") btn = '<button class="btn done" disabled>Done ✓</button>';
   else if (st === "ready") btn = '<button class="btn ready" data-claim="' + t.id + '">' + (t.id === "channel" ? "Verify" : "Claim") + "</button>";
   else if (t.id === "channel") btn = '<button class="btn" data-join="1">Join</button>';
   else btn = '<button class="btn" disabled>' + fmt(p) + "/" + fmt(t.target) + "</button>";
   const bar = (t.target > 1 && st !== "done") ? '<div class="bar thin"><div class="fill" style="width:' + (p / t.target * 100) + '%"></div></div>' : "";
-  return '<div class="task ' + (st === "ready" ? "ready" : st === "done" ? "finished" : "") + '"><div class="t-icon">' + t.icon + '</div><div class="t-info"><strong>' + t.title + "</strong><small>+" + t.reward + " RP · +" + t.xp + " XP</small>" + bar + "</div>" + btn + "</div>";
+  return '<div class="task ' + (st === "ready" ? "ready" : st === "done" ? "finished" : "") + '"><div class="t-icon">' + t.icon + '</div><div class="t-info"><strong>' + t.title + "</strong><small>+" + fmt(m.rw) + " RP · +" + m.xp + " XP</small>" + bar + "</div>" + btn + "</div>";
+}
+function ctWait(t) {
+  if (t.kind !== "link" || !t.started) return 0;
+  const o = ctOpened[t.id]; if (!o) return 0;
+  return Math.max(0, Math.ceil(t.wait - (Date.now() - o) / 1000));
+}
+function ctState(t) { return t.done ? "done" : (t.started && ctWait(t) === 0 ? "ready" : "pending"); }
+function ctHTML(t) {
+  const st = ctState(t); let btn;
+  if (st === "done") btn = '<button class="btn done" disabled>Done ✓</button>';
+  else if (!t.started) btn = '<button class="btn" data-ct-open="' + t.id + '">' + (t.kind === "channel" ? "Join" : "Open") + "</button>";
+  else if (st === "ready") btn = '<button class="btn ready" data-ct-claim="' + t.id + '">' + (t.kind === "channel" ? "Verify" : "Claim") + "</button>";
+  else btn = '<button class="btn" disabled>Wait ' + ctWait(t) + "s</button>";
+  return '<div class="task ' + (st === "ready" ? "ready" : st === "done" ? "finished" : "") + '"><div class="t-icon">' + esc(t.icon) + '</div><div class="t-info"><strong>' + esc(t.title) + "</strong><small>+" + fmt(t.reward) + " RP" + (t.xp ? " · +" + t.xp + " XP" : "") + "</small></div>" + btn + "</div>";
 }
 function renderTasks() {
-  const open = TASKS.filter(t => !S.done[t.id]);
-  $("homeTasks").innerHTML = open.length ? open.slice(0, 3).map(taskHTML).join("") : '<div class="empty">All missions complete. New ones are coming soon.</div>';
+  const items = TASKS.map(t => ({ st: taskState(t), html: taskHTML(t) }));
+  (S.ctasks || []).forEach(t => items.push({ st: ctState(t), html: ctHTML(t) }));
+  const open = items.filter(x => x.st !== "done");
+  $("homeTasks").innerHTML = open.length ? open.slice(0, 3).map(x => x.html).join("") : '<div class="empty">All missions complete. New ones are coming soon.</div>';
   const o = { ready: 0, pending: 1, done: 2 };
-  $("allTasks").innerHTML = TASKS.slice().sort((a, b) => o[taskState(a)] - o[taskState(b)]).map(taskHTML).join("");
-  const dn = TASKS.filter(t => S.done[t.id]).length;
-  $("taskCount").textContent = dn + " / " + TASKS.length + " complete";
-  $("taskBar").style.width = (dn / TASKS.length * 100) + "%";
-  $("taskDot").classList.toggle("on", TASKS.some(t => taskState(t) === "ready") || !S.checkedToday);
+  $("allTasks").innerHTML = items.slice().sort((a, b) => o[a.st] - o[b.st]).map(x => x.html).join("");
+  const dn = items.filter(x => x.st === "done").length;
+  $("taskCount").textContent = dn + " / " + items.length + " complete";
+  $("taskBar").style.width = (items.length ? dn / items.length * 100 : 0) + "%";
+  $("taskDot").classList.toggle("on", items.some(x => x.st === "ready") || !S.checkedToday);
   return dn;
+}
+function claim(id) { return run(async () => {
+  const r = await act("claim", { task: id });
+  notify("Mission claimed: +" + r.reward + " RP"); haptic("ok");
+  if (r.leveled) levelUp();
+  render();
+}); }
+function joinChannel() {
+  try { localStorage.setItem("rr_join", "1"); } catch (e) {}
+  openLink(CFG.channelLink);
+  notify("Join the channel, then come back and tap Verify.");
+  renderTasks();
+}
+function ctOpen(id) {
+  const t = S.ctasks.find(x => x.id === Number(id)); if (!t) return;
+  ctOpened[t.id] = Date.now();
+  openLink(t.url);
+  api("ctask_start", { id: t.id }).then(() => { t.started = true; renderTasks(); }).catch(e => notify(e.message));
+}
+function ctClaim(id) { return run(async () => {
+  const r = await act("ctask_claim", { id: Number(id) });
+  notify("Task complete: +" + fmt(r.reward) + " RP"); haptic("ok");
+  if (r.leveled) levelUp();
+  render();
+}); }
+
+/* ---------- ads ---------- */
+let adNextAt = 0;
+const watchAd = () => run(async () => {
+  await flushTaps();
+  if (typeof show_12146551 !== "function") throw new Error("Ads are not available right now. Turn off any ad blocker and try again.");
+  await api("ad_start");
+  try { await show_12146551(); } catch (e) { throw new Error("No ad available right now. Try again in a moment."); }
+  const r = await api("ad_claim");
+  applyState(r.state);
+  adNextAt = Date.now() + (CFG.adCooldown || 0) * 1000;
+  notify("+" + fmt(r.reward) + " RP for watching Ad 1"); haptic("ok"); render();
+});
+function renderAds() {
+  if (!S) return;
+  const limit = CFG.adDailyLimit || 0, today = S.adsToday || 0, left = Math.ceil((adNextAt - Date.now()) / 1000);
+  $("adsToday").textContent = today; $("adsLimit").textContent = limit;
+  $("adRewardTxt").textContent = fmt(CFG.adReward || 0) + " RP"; $("adCool").textContent = CFG.adCooldown || 0;
+  const b = $("adBtn");
+  if (today >= limit) { b.disabled = true; b.classList.remove("ready"); b.textContent = "Daily limit reached"; }
+  else if (left > 0) { b.disabled = true; b.classList.remove("ready"); b.textContent = "Next ad in " + left + "s"; }
+  else { b.disabled = false; b.classList.add("ready"); b.textContent = "▶ Watch Ad 1 (+" + fmt(CFG.adReward || 0) + " RP)"; }
+}
+
+/* ---------- must-join gate ---------- */
+function showJoinGate(chs) {
+  $("gateTitle").textContent = "Join to continue";
+  $("gateText").textContent = "Join these channels, then tap the button below.";
+  $("gateList").innerHTML = (chs || []).map(c => '<button class="btn ghost block" style="margin-bottom:10px" data-open="' + esc(c.link) + '">' + esc(c.title) + "</button>").join("");
+  $("gateRetry").textContent = "I've joined"; $("gateRetry").style.display = "inline-block";
+  $("gate").classList.add("show");
 }
 
 /* ---------- level up ---------- */
 function levelUp() {
   $("mTitle").textContent = "Level " + S.level;
-  $("mText").textContent = stage().name + " · +100 RP bonus · more max energy";
+  $("mText").textContent = stage().name + " · +" + (CFG.levelBonus == null ? 100 : CFG.levelBonus) + " RP bonus · more max energy";
   $("modal").classList.add("show"); haptic("ok"); confetti();
 }
 
@@ -837,11 +919,11 @@ function render() {
   const live = S.streak, claimed = S.checkedToday;
   $("streakNum").textContent = live;
   const inCycle = claimed ? ((live - 1) % 7) + 1 : live % 7;
-  $("week").innerHTML = REWARDS.map((r, i) => '<div class="day ' + (i < inCycle ? "got" : (!claimed && i === inCycle ? "today" : "")) + '">Day ' + (i + 1) + "<b>" + (i < inCycle ? "✓" : "+" + r) + "</b></div>").join("");
+  $("week").innerHTML = rewards().map((r, i) => '<div class="day ' + (i < inCycle ? "got" : (!claimed && i === inCycle ? "today" : "")) + '">Day ' + (i + 1) + "<b>" + (i < inCycle ? "✓" : "+" + r) + "</b></div>").join("");
   $("checkInBtn").disabled = claimed; $("checkInBtn").classList.toggle("ready", !claimed);
-  $("checkInBtn").textContent = claimed ? "Claimed today ✓" : "Claim +" + REWARDS[live % 7] + " RP";
+  $("checkInBtn").textContent = claimed ? "Claimed today ✓" : "Claim +" + rewards()[live % 7] + " RP";
   $("checkInHint").textContent = claimed ? "Come back tomorrow" : "Ready now";
-  const dn = renderTasks();
+  const dn = renderTasks(); renderAds();
 
   $("gameOdds").innerHTML = "Win chance <b>" + CFG.winChance + "%</b> · Pays <b>" + CFG.multiplier + "×</b> your bet · Bets " + fmt(CFG.minBet) + " to " + fmt(CFG.maxBet) + " RP";
   $("gPlayed").textContent = S.gPlayed; $("gWon").textContent = S.gWon; $("gNet").textContent = (S.gNet > 0 ? "+" : "") + fmt(S.gNet);
@@ -849,12 +931,12 @@ function render() {
 
   $("referralLink").value = refLink(); $("refRewardTxt").textContent = fmt(CFG.refReward) + " RP";
   $("refCount").textContent = S.refCount; $("refQual").textContent = S.refQual; $("refPoints").textContent = fmt(S.refPoints);
-  $("milestones").innerHTML = MILESTONES.map(m => '<div class="milestone"><span class="m-ico">' + m.icon + '</span><div class="grow"><strong>Invite ' + m.n + " friend" + (m.n > 1 ? "s" : "") + "</strong><br><small>+" + fmt(m.rp) + ' RP bonus</small></div><span class="' + (S.ms[m.n] ? "gold" : "muted") + '">' + Math.min(S.refQual, m.n) + "/" + m.n + "</span></div>").join("");
+  $("milestones").innerHTML = milestones().map((m, i) => '<div class="milestone"><span class="m-ico">' + (MS_ICONS[i] || "🎁") + '</span><div class="grow"><strong>Invite ' + m.n + " friend" + (m.n > 1 ? "s" : "") + "</strong><br><small>+" + fmt(m.rp) + ' RP bonus</small></div><span class="' + (S.ms[m.n] ? "gold" : "muted") + '">' + Math.min(S.refQual, m.n) + "/" + m.n + "</span></div>").join("");
   $("rateLine").textContent = "Rate: " + fmt(CFG.swapRate) + " RP = 1 TON · Swap fee " + CFG.swapFee + "%";
   renderSwapPreview(); renderWdPreview();
   $("wHistory").innerHTML = S.withdrawals.length ? S.withdrawals.map(w => '<div class="tx"><div class="top"><strong>' + fmtTon(w.net) + ' TON</strong><span class="pill ' + w.status + '">' + w.status[0].toUpperCase() + w.status.slice(1) + "</span></div><small>" + esc(short(w.address)) + " · " + when(w.t) + "</small>" + (w.status === "success" && w.url ? '<small><a href="' + esc(w.url) + '" data-open="' + esc(w.url) + '">View on TonScan</a></small>' : "") + "</div>").join("") : '<div class="empty">No withdrawals yet. Swap RP to TON, then withdraw to your wallet.</div>';
 
-  $("inboxList").innerHTML = S.notifs.length ? S.notifs.map(n => '<div class="notif ' + (n.read ? "" : "unread") + '"><div class="n-ico">' + ({ withdraw: "💸", referral: "👥", swap: "🔄" }[n.type] || "🔔") + "</div><div><strong>" + esc(n.title) + "</strong><p>" + esc(n.body) + "</p>" + (n.link ? '<a href="' + esc(n.link) + '" data-open="' + esc(n.link) + '">' + esc(n.linkText || "Open") + "</a>" : "") + "<time>" + when(n.t) + "</time></div></div>").join("") : '<div class="empty">No notifications yet. Withdrawals and referrals show up here.</div>';
+  $("inboxList").innerHTML = S.notifs.length ? S.notifs.map(n => '<div class="notif ' + (n.read ? "" : "unread") + '"><div class="n-ico">' + ({ withdraw: "💸", referral: "👥", swap: "🔄", broadcast: "📢" }[n.type] || "🔔") + "</div><div><strong>" + esc(n.title) + "</strong><p>" + esc(n.body) + "</p>" + (n.link ? '<a href="' + esc(n.link) + '" data-open="' + esc(n.link) + '">' + esc(n.linkText || "Open") + "</a>" : "") + "<time>" + when(n.t) + "</time></div></div>").join("") : '<div class="empty">No notifications yet. Withdrawals and referrals show up here.</div>';
   renderBell();
 
   const idx = stageIndex(), st = STAGES[idx], nx = STAGES[idx + 1];
@@ -908,12 +990,15 @@ document.addEventListener("click", e => {
   if ((el = t.closest("[data-open]"))) { e.preventDefault(); return openLink(el.dataset.open); }
   if ((el = t.closest("[data-claim]"))) return claim(el.dataset.claim);
   if (t.closest("[data-join]")) return joinChannel();
+  if ((el = t.closest("[data-ct-open]"))) return ctOpen(el.dataset.ctOpen);
+  if ((el = t.closest("[data-ct-claim]"))) return ctClaim(el.dataset.ctClaim);
   if ((el = t.closest("[data-bet]"))) { $("betInput").value = betValue(el.dataset.bet); return; }
   if ((el = t.closest("[data-bin]"))) return playBin(Number(el.dataset.bin));
   if ((el = t.closest("[data-btab]"))) { boardTab = el.dataset.btab; return renderFeed(); }
   if ((el = t.closest("[data-go]"))) { if (el.dataset.btabGo) boardTab = el.dataset.btabGo; return showPage(el.dataset.go); }
 });
 document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[role="button"][data-go]')) { e.preventDefault(); showPage(e.target.dataset.go); } });
+$("adBtn").addEventListener("click", watchAd);
 $("copyBtn").addEventListener("click", copyRef);
 $("shareBtn").addEventListener("click", shareRef);
 $("swapAmt").addEventListener("input", () => S && renderSwapPreview());
@@ -928,7 +1013,9 @@ $("gateRetry").addEventListener("click", () => location.reload());
 
 /* ---------- timers ---------- */
 setInterval(() => {
-  if (S && S.energy < energyMax()) { S.energy = Math.min(energyMax(), S.energy + 1000 / ENERGY_REGEN_MS); hud(); }
+  if (S && S.energy < energyMax()) { S.energy = Math.min(energyMax(), S.energy + 1000 / regenMs()); hud(); }
+  if (S && (currentPage === "ads" || adNextAt > Date.now())) renderAds();
+  if (S && (S.ctasks || []).some(t => t.started && !t.done && ctWait(t) > 0)) renderTasks();
 }, 1000);
 setInterval(() => { if (S && !document.hidden && (currentPage === "board" || currentPage === "home")) loadFeed(); }, 15000);
 // pick up referrals, approvals and notifications while the app is open
@@ -978,7 +1065,7 @@ function confetti() {
 /* ---------- start ---------- */
 function gate(title, text, retry) {
   $("gateTitle").textContent = title; $("gateText").textContent = text;
-  $("gateRetry").style.display = retry ? "inline-block" : "none";
+  $("gateRetry").style.display = retry ? "inline-block" : "none"; $("gateRetry").textContent = "Try again"; $("gateList").innerHTML = "";
   $("gate").classList.add("show");
 }
 (async function init() {
@@ -989,7 +1076,7 @@ function gate(title, text, retry) {
     applyState(r.state); render();
     $("gate").classList.remove("show");
     loadFeed();
-  } catch (e) { gate("Could not load", e.message, true); }
+  } catch (e) { if (!e.join) gate("Could not load", e.message, true); }
 })();
 </script>
 </body>
