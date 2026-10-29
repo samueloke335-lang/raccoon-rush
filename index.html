@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#07060a" />
+<title>Raccoon Rush</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #07060a;
+    --gold: #ffc52e;
+    --gold-hi: #ffe28a;
+    --amber: #ff9d00;
+    --teal: #3df5c8;
+    --text: #f7f4ee;
+    --muted: #a49f93;
+    --aura: #ffc52e;
+    --aura-rgb: 255,197,46;
+    --card: linear-gradient(160deg, rgba(255,197,46,.09), rgba(255,255,255,.025) 60%);
+    --card-line: rgba(255,197,46,.2);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body {
+    background:
+      radial-gradient(ellipse 120% 50% at 50% -8%, rgba(255,157,0,.22), transparent 60%),
+      radial-gradient(ellipse 80% 40% at 100% 70%, rgba(61,245,200,.06), transparent 60%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: Sora, Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  #embers { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  .app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 16px 14px 120px; min-height: 100vh; }
+
+  /* header */
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; font-size: 25px;
+    background: linear-gradient(145deg, #ffe9a6, #e49a00); color: #111;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.25) inset, 0 0 22px rgba(255,197,46,.65), 0 0 50px rgba(255,157,0,.3);
+  }
+  .brand h1 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: .5px; line-height: 1.1; }
+  .brand h1 span { color: var(--gold); text-shadow: 0 0 16px rgba(255,197,46,.8); }
+  .brand small { color: var(--muted); font-size: 11px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 99px; font-size: 12px; font-weight: 700;
+    background: rgba(255,157,0,.12); border: 1px solid rgba(255,157,0,.45); color: #ffd27a;
+    box-shadow: 0 0 16px rgba(255,157,0,.25);
+  }
+
+  /* cards */
+  .card { background: var(--card); border: 1px solid var(--card-line); border-radius: 20px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 0 26px rgba(255,197,46,.05); backdrop-filter: blur(6px); }
+  .page { display: none; }
+  .page.active { display: block; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .muted { color: var(--muted); }
+  .gold { color: var(--gold); }
+  .section-head { display: flex; justify-content: space-between; align-items: center; margin: 22px 2px 10px; }
+  .section-head h3 { margin: 0; font-size: 16px; }
+  .link-btn { border: 0; background: transparent; color: var(--gold); font-size: 12px; font-weight: 700; padding: 4px; }
+  .note { color: #7f7a6f; font-size: 11px; line-height: 1.55; text-align: center; margin: 18px 10px 0; }
+
+  /* buttons */
+  .btn {
+    position: relative; overflow: hidden; border: 0; border-radius: 13px; padding: 11px 15px; font-weight: 800; font-size: 12px;
+    background: linear-gradient(180deg, #ffd45c, #ffb100); color: #1a1202;
+    box-shadow: 0 0 18px rgba(255,197,46,.5), 0 3px 0 #b97f00;
+    transition: transform .08s, box-shadow .08s;
+  }
+  .btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 0 22px rgba(255,197,46,.6), 0 1px 0 #b97f00; }
+  .btn.ready::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,.65), transparent); transform: skewX(-18deg);
+    animation: sheen 2.6s ease-in-out infinite;
+  }
+  .btn:disabled { background: #26231a; color: #8d8573; box-shadow: none; cursor: not-allowed; border: 1px solid #3a3322; }
+  .btn.done { background: rgba(61,245,200,.1); color: var(--teal); border: 1px solid rgba(61,245,200,.4); box-shadow: 0 0 14px rgba(61,245,200,.2); }
+  .btn.ghost { background: transparent; color: var(--gold); border: 1px solid rgba(255,197,46,.5); box-shadow: 0 0 14px rgba(255,197,46,.15); }
+  .btn.block { width: 100%; padding: 14px; font-size: 13px; }
+  :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+  /* balance + stage */
+  .welcome { font-size: 13px; color: var(--muted); }
+  .welcome b { color: var(--text); }
+  .balance { text-align: center; margin: 14px 0 0; }
+  .balance small { color: var(--muted); font-size: 12px; }
+  .balance .num {
+    font-size: 54px; font-weight: 800; line-height: 1.05; letter-spacing: -1px;
+    background: linear-gradient(180deg, #fff3c4, #ffc52e 55%, #ff9d00); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 18px rgba(255,170,0,.55));
+  }
+  .balance .num span { font-size: 20px; letter-spacing: 0; margin-left: 4px; }
+  .stage { position: relative; width: 240px; height: 240px; margin: 14px auto 6px; display: grid; place-items: center; }
+  .aura { position: absolute; inset: -34px; border-radius: 50%; background: radial-gradient(circle, rgba(var(--aura-rgb),.5) 0, rgba(var(--aura-rgb),.14) 42%, transparent 68%); animation: pulse 3.2s ease-in-out infinite; }
+  .ring { position: absolute; inset: 6px; border-radius: 50%; border: 2px dashed rgba(var(--aura-rgb),.55); animation: spin 26s linear infinite; box-shadow: 0 0 24px rgba(var(--aura-rgb),.35), inset 0 0 24px rgba(var(--aura-rgb),.2); }
+  .ring.two { inset: -10px; border: 1px solid rgba(var(--aura-rgb),.25); animation-direction: reverse; animation-duration: 40s; box-shadow: none; }
+  .mascot {
+    position: relative; z-index: 2; border: 0; background: transparent; font-size: 136px; line-height: 1; padding: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+    filter: drop-shadow(0 0 22px rgba(var(--aura-rgb),.75)) drop-shadow(0 10px 10px rgba(0,0,0,.6));
+    animation: bob 3.6s ease-in-out infinite;
+  }
+  .acc { position: absolute; z-index: 3; top: 8px; right: 6px; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; background: rgba(10,8,4,.8); border: 1px solid rgba(var(--aura-rgb),.7); box-shadow: 0 0 20px rgba(var(--aura-rgb),.6); }
+  .acc:empty { display: none; }
+  .tap-hint { text-align: center; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .tap-hint b { color: var(--gold); }
+  .float { position: fixed; z-index: 40; pointer-events: none; font-weight: 800; font-size: 22px; color: #fff0b8; text-shadow: 0 0 14px #ffc52e, 0 0 28px #ff9d00; transform: translate(-50%,-50%); animation: floatUp .9s ease-out forwards; }
+
+  /* bars */
+  .bar { height: 10px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.6); }
+  .bar.thin { height: 6px; }
+  .fill { height: 100%; width: 0; border-radius: 99px; position: relative; overflow: hidden; background: linear-gradient(90deg, #ff9d00, #ffc52e 70%, #fff0b8); box-shadow: 0 0 14px rgba(255,197,46,.9); transition: width .3s ease; }
+  .fill::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.55) 50%, transparent 80%); transform: translateX(-100%); animation: barsheen 2.8s ease-in-out infinite; }
+  .fill.teal { background: linear-gradient(90deg, #14c9a0, var(--teal)); box-shadow: 0 0 14px rgba(61,245,200,.85); }
+  .level-line { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; margin-bottom: 9px; }
+  .level-line strong { font-size: 14px; }
+
+  /* check-in */
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 13px 0; }
+  .day { text-align: center; padding: 8px 0 7px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); font-size: 10px; color: var(--muted); }
+  .day b { display: block; font-size: 13px; color: var(--text); margin-top: 3px; }
+  .day.got { background: rgba(61,245,200,.1); border-color: rgba(61,245,200,.45); box-shadow: 0 0 14px rgba(61,245,200,.2); }
+  .day.got b { color: var(--teal); }
+  .day.today { background: rgba(255,197,46,.14); border-color: var(--gold); box-shadow: 0 0 18px rgba(255,197,46,.5); animation: pulse 2s ease-in-out infinite; }
+  .day.today b { color: var(--gold-hi); }
+
+  /* tasks */
+  .tasks { display: grid; gap: 9px; }
+  .task { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 17px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); }
+  .task.ready { border-color: rgba(255,197,46,.6); box-shadow: 0 0 20px rgba(255,197,46,.2); background: rgba(255,197,46,.06); }
+  .task.finished { opacity: .65; }
+  .t-icon { width: 42px; height: 42px; flex-shrink: 0; display: grid; place-items: center; border-radius: 13px; font-size: 20px; background: rgba(255,197,46,.1); border: 1px solid rgba(255,197,46,.25); }
+  .t-info { flex: 1; min-width: 0; }
+  .t-info strong { display: block; font-size: 12.5px; line-height: 1.3; }
+  .t-info small { display: block; margin: 4px 0 0; color: var(--gold); font-size: 11px; }
+  .t-info .bar { margin-top: 7px; }
+  .task .btn { min-width: 76px; padding: 10px 8px; font-size: 11px; }
+  .empty { padding: 20px; text-align: center; font-size: 13px; color: var(--muted); border-radius: 17px; border: 1px dashed rgba(255,197,46,.3); }
+
+  /* friends */
+  .ref-link { display: flex; gap: 8px; margin: 12px 0; }
+  .ref-link input { flex: 1; min-width: 0; background: rgba(0,0,0,.5); border: 1px solid rgba(255,197,46,.3); color: #eee; padding: 11px; border-radius: 11px; font-size: 11px; font-family: inherit; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .mini { text-align: center; padding: 12px 6px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
+  .mini strong { display: block; font-size: 19px; color: var(--gold); text-shadow: 0 0 12px rgba(255,197,46,.5); }
+  .mini small { font-size: 10px; color: var(--muted); }
+  .milestone { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 15px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); margin-top: 8px; font-size: 12px; }
+  .milestone .m-ico { font-size: 22px; }
+  .milestone .grow { flex: 1; }
+  .milestone small { color: var(--muted); }
+  .board { display: grid; gap: 7px; }
+  .rank { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); font-size: 13px; }
+  .rank .pos { width: 26px; text-align: center; font-weight: 800; color: var(--muted); }
+  .rank:nth-child(1) .pos { color: #ffd54a; text-shadow: 0 0 10px #ffc52e; }
+  .rank .nm { flex: 1; font-weight: 700; }
+  .rank .pt { color: var(--gold); font-weight: 700; font-size: 12px; }
+  .rank.you { border-color: var(--teal); background: rgba(61,245,200,.08); box-shadow: 0 0 18px rgba(61,245,200,.25); }
+
+  /* evolve */
+  .evo-hero { text-align: center; }
+  .evo-hero .stage { width: 210px; height: 210px; }
+  .evo-hero .mascot { font-size: 112px; animation-duration: 4s; }
+  .evo-hero h2 { margin: 2px 0 4px; font-size: 20px; text-shadow: 0 0 18px rgba(var(--aura-rgb),.7); }
+  .timeline { position: relative; margin-top: 14px; display: grid; gap: 10px; }
+  .step { display: flex; align-items: center; gap: 13px; padding: 12px; border-radius: 17px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); }
+  .step .s-ico { width: 52px; height: 52px; border-radius: 15px; display: grid; place-items: center; font-size: 28px; background: rgba(255,255,255,.05); position: relative; flex-shrink: 0; }
+  .step .s-ico i { position: absolute; right: -5px; top: -7px; font-style: normal; font-size: 15px; }
+  .step strong { display: block; font-size: 13px; }
+  .step small { color: var(--muted); font-size: 11px; }
+  .step.locked .s-ico { filter: grayscale(1) brightness(.6); }
+  .step.locked { opacity: .7; }
+  .step.current { border-color: var(--c); box-shadow: 0 0 22px var(--cg); background: rgba(255,255,255,.05); }
+  .step.current .s-ico { box-shadow: 0 0 20px var(--cg); }
+  .step.passed .s-ico { box-shadow: 0 0 12px var(--cg); }
+
+  /* profile */
+  .p-head { text-align: center; }
+  .p-head .avatar { width: 92px; height: 92px; margin: 0 auto 8px; border-radius: 50%; display: grid; place-items: center; font-size: 52px; background: radial-gradient(circle, rgba(var(--aura-rgb),.35), rgba(0,0,0,.4)); border: 2px solid var(--aura); box-shadow: 0 0 30px rgba(var(--aura-rgb),.7); }
+  .p-head h2 { margin: 4px 0 2px; font-size: 20px; }
+  .badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .badge { text-align: center; padding: 11px 3px 9px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); font-size: 9.5px; color: var(--muted); line-height: 1.25; }
+  .badge span { display: block; font-size: 26px; margin-bottom: 4px; filter: grayscale(1) brightness(.45); }
+  .badge.on { border-color: rgba(255,197,46,.55); color: var(--text); box-shadow: 0 0 16px rgba(255,197,46,.25); background: rgba(255,197,46,.07); }
+  .badge.on span { filter: drop-shadow(0 0 8px rgba(255,197,46,.9)); }
+
+  /* nav */
+  .bottom-nav { position: fixed; z-index: 20; bottom: 0; left: 50%; transform: translateX(-50%); width: min(480px, 100%); display: grid; grid-template-columns: repeat(5, 1fr); padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: rgba(10,8,6,.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid rgba(255,197,46,.2); box-shadow: 0 -10px 30px rgba(0,0,0,.6); }
+  .nav-item { position: relative; border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 0 4px; font-size: 10px; color: #7e786b; font-weight: 700; }
+  .nav-item span { font-size: 21px; filter: grayscale(1) brightness(.8); transition: .2s; }
+  .nav-item.active { color: var(--gold); text-shadow: 0 0 12px rgba(255,197,46,.8); }
+  .nav-item.active span { filter: none; transform: translateY(-2px) scale(1.12); }
+  .nav-item.active::before { content: ""; position: absolute; top: -9px; width: 34px; height: 3px; border-radius: 0 0 4px 4px; background: var(--gold); box-shadow: 0 0 16px 2px rgba(255,197,46,.9); }
+  .dot { position: absolute; top: 4px; right: calc(50% - 20px); width: 9px; height: 9px; border-radius: 50%; background: #ff4d4d; box-shadow: 0 0 10px #ff4d4d; display: none; }
+  .dot.on { display: block; }
+
+  /* toast + modal */
+  .notice { position: fixed; z-index: 60; left: 50%; bottom: 100px; transform: translate(-50%, 14px); opacity: 0; pointer-events: none; background: rgba(20,16,8,.95); border: 1px solid rgba(255,197,46,.6); box-shadow: 0 0 24px rgba(255,197,46,.35); padding: 11px 16px; border-radius: 13px; font-size: 12px; font-weight: 700; transition: .22s; width: max-content; max-width: 90%; text-align: center; }
+  .notice.show { opacity: 1; transform: translate(-50%, 0); }
+  .modal { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; padding: 20px; background: rgba(0,0,0,.78); backdrop-filter: blur(5px); }
+  .modal.show { display: grid; }
+  .modal .box { width: min(340px, 100%); text-align: center; padding: 26px 20px 22px; border-radius: 26px; background: linear-gradient(160deg, #2a1d06, #0e0b06 70%); border: 1px solid var(--aura); box-shadow: 0 0 60px rgba(var(--aura-rgb),.55); animation: pop .35s cubic-bezier(.2,1.4,.4,1); }
+  .modal .big { font-size: 90px; filter: drop-shadow(0 0 26px rgba(var(--aura-rgb),.9)); }
+  .modal h2 { margin: 6px 0 4px; font-size: 26px; text-shadow: 0 0 20px rgba(var(--aura-rgb),.9); }
+  .modal p { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 55; }
+
+  @keyframes pulse { 0%,100% { opacity: .75; transform: scale(.97); } 50% { opacity: 1; transform: scale(1.04); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+  @keyframes sheen { 0%,55% { left: -60%; } 100% { left: 130%; } }
+  @keyframes barsheen { 0%,40% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  @keyframes floatUp { to { transform: translate(-50%, -150px); opacity: 0; } }
+  @keyframes pop { from { transform: scale(.7); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  @media (min-width: 700px) { .app { border-left: 1px solid rgba(255,197,46,.1); border-right: 1px solid rgba(255,197,46,.1); } }
+  /* ===== v3 additions ===== */
+  .hdr-actions { display: flex; gap: 8px; }
+  .icon-btn { position: relative; width: 42px; height: 42px; border-radius: 14px; border: 1px solid rgba(255,197,46,.35); background: rgba(255,197,46,.08); display: grid; place-items: center; font-size: 19px; box-shadow: 0 0 16px rgba(255,197,46,.2); }
+  .count { position: absolute; top: -6px; right: -6px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: #ff4d4d; color: #fff; font-style: normal; font-size: 10px; font-weight: 800; display: none; place-items: center; box-shadow: 0 0 12px #ff4d4d; }
+  .count.on { display: grid; }
+  .home-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .clickable { cursor: pointer; }
+  .back { border: 0; background: transparent; color: var(--gold); font-weight: 700; font-size: 13px; padding: 4px 0; }
+  .field { display: grid; gap: 5px; margin-top: 12px; }
+  .field label { font-size: 11px; color: var(--muted); font-weight: 700; }
+  .field input, .mini-in, .bet-in { width: 100%; min-width: 0; background: rgba(0,0,0,.5); border: 1px solid rgba(255,197,46,.3); color: #fff; border-radius: 11px; padding: 12px; font: inherit; font-size: 13px; }
+  .field input:focus, .mini-in:focus, .bet-in:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 14px rgba(255,197,46,.35); }
+  .field small { color: var(--muted); font-size: 10.5px; line-height: 1.45; }
+  .input-row { display: flex; gap: 8px; }
+  .input-row input { flex: 1; }
+  .bal2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .bal { padding: 14px; border-radius: 18px; border: 1px solid var(--card-line); background: var(--card); }
+  .bal small { color: var(--muted); font-size: 11px; }
+  .bal strong { display: block; font-size: 21px; margin-top: 5px; color: var(--gold); text-shadow: 0 0 16px rgba(255,197,46,.6); }
+  .bal.ton { border-color: rgba(108,196,255,.45); box-shadow: 0 0 22px rgba(108,196,255,.18); }
+  .bal.ton strong { color: #7cc9ff; text-shadow: 0 0 16px rgba(108,196,255,.7); }
+  .preview { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.04); font-size: 12px; line-height: 1.6; color: var(--muted); }
+  .preview b { color: var(--gold-hi); }
+  .step-label { font-size: 12px; font-weight: 800; color: var(--gold); margin-bottom: 2px; }
+  .pill { padding: 4px 9px; border-radius: 99px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+  .pill.pending { background: rgba(255,157,0,.15); color: #ffb84a; border: 1px solid rgba(255,157,0,.5); }
+  .pill.success { background: rgba(61,245,200,.12); color: var(--teal); border: 1px solid rgba(61,245,200,.5); }
+  .pill.rejected { background: rgba(255,77,77,.12); color: #ff7b7b; border: 1px solid rgba(255,77,77,.45); }
+  .tx { padding: 12px; border-radius: 15px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); margin-top: 8px; font-size: 12px; }
+  .tx .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .tx small { color: var(--muted); display: block; margin-top: 5px; word-break: break-all; line-height: 1.4; }
+  .tx a, .notif a { color: #7cc9ff; font-weight: 700; text-decoration: none; font-size: 12px; }
+  .tx .acts { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .tx .acts .mini-in { flex: 1 1 100%; }
+  .tx .acts .btn { flex: 1; }
+  .bins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0 6px; }
+  .bin { aspect-ratio: 1; border-radius: 22px; border: 1px solid rgba(255,197,46,.35); background: radial-gradient(circle at 50% 30%, rgba(255,197,46,.2), rgba(0,0,0,.45)); font-size: 52px; display: grid; place-items: center; box-shadow: 0 0 22px rgba(255,197,46,.2); transition: transform .15s; padding: 0; }
+  .bin:active:not(:disabled) { transform: scale(.94); }
+  .bin:disabled { cursor: default; }
+  .bin.shake { animation: shake .5s; }
+  .bin.win { border-color: var(--teal); box-shadow: 0 0 34px rgba(61,245,200,.85); }
+  .bin.prize { border-color: var(--gold); box-shadow: 0 0 30px rgba(255,197,46,.85); }
+  .bin.lose { border-color: #ff4d4d; box-shadow: 0 0 28px rgba(255,77,77,.6); }
+  .chips { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
+  .chipbtn { padding: 8px 13px; border-radius: 99px; border: 1px solid rgba(255,197,46,.4); background: rgba(255,197,46,.08); color: var(--gold-hi); font-size: 12px; font-weight: 700; }
+  .result { min-height: 26px; text-align: center; font-weight: 800; font-size: 15px; margin: 6px 0 0; }
+  .result.win { color: var(--teal); text-shadow: 0 0 16px rgba(61,245,200,.8); }
+  .result.lose { color: #ff8a8a; }
+  .odds { text-align: center; font-size: 12px; color: var(--muted); }
+  .odds b { color: var(--gold-hi); }
+  .notif { display: flex; gap: 12px; padding: 12px; border-radius: 15px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); margin-top: 8px; }
+  .notif.unread { border-color: rgba(255,197,46,.55); box-shadow: 0 0 18px rgba(255,197,46,.2); }
+  .notif .n-ico { font-size: 24px; }
+  .notif strong { display: block; font-size: 13px; }
+  .notif p { margin: 3px 0 4px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .notif time { display: block; margin-top: 5px; font-size: 10px; color: #7f7a6f; }
+  .rtp { margin-top: 12px; padding: 10px 12px; border-radius: 12px; font-size: 12px; line-height: 1.5; border: 1px solid rgba(61,245,200,.4); background: rgba(61,245,200,.07); }
+  .rtp.bad { border-color: rgba(255,77,77,.6); background: rgba(255,77,77,.09); }
+  .pin-in { text-align: center; font-size: 22px; letter-spacing: 8px; margin-bottom: 14px; }
+  @keyframes shake { 20% { transform: rotate(-8deg); } 40% { transform: rotate(8deg); } 60% { transform: rotate(-6deg); } 80% { transform: rotate(6deg); } }
+  .gate { position: fixed; inset: 0; z-index: 100; display: none; place-items: center; background: #07060a; padding: 24px; text-align: center; }
+  .gate.show { display: grid; }
+  .gate-ico { font-size: 84px; animation: bob 3s ease-in-out infinite; filter: drop-shadow(0 0 26px rgba(255,197,46,.8)); }
+  .gate-box h2 { margin: 10px 0 6px; font-size: 20px; }
+  .gate-box p { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.55; max-width: 300px; }
+  .chipbtn.on { background: var(--gold); color: #1a1202; box-shadow: 0 0 16px rgba(255,197,46,.6); }
+  .live-dot { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: #ff4d4d; box-shadow: 0 0 10px #ff4d4d; animation: pulse 1.4s ease-in-out infinite; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div class="gate show" id="gate"><div class="gate-box"><div class="gate-ico">🦝</div><h2 id="gateTitle">Loading…</h2><p id="gateText"></p><button class="btn ready" id="gateRetry" style="display:none">Try again</button></div></div>
+<canvas id="embers" aria-hidden="true"></canvas>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<main class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">🦝</div>
+      <div><h1>RACCOON <span>RUSH</span></h1><small>Play, grow and earn</small></div>
+    </div>
+    <div class="hdr-actions">
+      <button class="icon-btn" data-go="board" data-btab-go="rank" aria-label="Leaderboard">🏆</button>
+      <button class="icon-btn" data-go="inbox" aria-label="Notifications">🔔<i class="count" id="bellCount">0</i></button>
+      <button class="icon-btn" data-go="profile" aria-label="Profile">👤</button>
+    </div>
+  </header>
+
+  <!-- HOME -->
+  <section id="homePage" class="page active">
+    <div class="home-top">
+      <div class="welcome">Welcome back, <b id="userName">Rusher</b> 👋</div>
+      <div class="chip">🔥 <span id="streakNum">0</span> day streak</div>
+    </div>
+
+    <div class="balance">
+      <small>Your balance</small>
+      <div class="num"><span id="points" style="font-size:inherit;margin:0;letter-spacing:inherit">0</span><span>RP</span></div>
+    </div>
+
+    <div class="stage">
+      <div class="aura"></div><div class="ring"></div><div class="ring two"></div>
+      <div class="acc" id="homeAcc"></div>
+      <button class="mascot" id="mascot" aria-label="Tap the raccoon to earn points">🦝</button>
+    </div>
+    <div class="tap-hint">Tap the raccoon to earn <b id="tapVal">+1 RP</b> per tap</div>
+
+    <div class="card" style="padding:12px 14px">
+      <div class="level-line"><strong>⚡ Energy</strong><span class="muted"><span id="energy">100</span> / <span id="energyMax">100</span></span></div>
+      <div class="bar thin"><div class="fill teal" id="energyBar"></div></div>
+    </div>
+
+    <div class="card clickable" style="margin-top:10px" data-go="evolve" role="button" tabindex="0">
+      <div class="level-line"><strong id="levelName">Level 1</strong><span class="gold"><span id="xp">0</span> / <span id="xpNeed">100</span> XP ›</span></div>
+      <div class="bar"><div class="fill" id="xpBar"></div></div>
+    </div>
+
+    <div class="section-head"><h3>Daily check-in</h3><span class="gold" id="checkInHint" style="font-size:12px;font-weight:700"></span></div>
+    <div class="card">
+      <div class="muted" style="font-size:12px">Check in every day. Miss a day and the streak starts again.</div>
+      <div class="week" id="week"></div>
+      <button class="btn block" id="checkInBtn">Claim daily reward</button>
+    </div>
+
+    <div class="section-head"><h3><span class="live-dot"></span>Live payouts</h3><button class="link-btn" data-go="board" data-btab-go="pay">See all</button></div>
+    <div id="homePayouts"><div class="empty">Loading…</div></div>
+
+    <div class="section-head"><h3>Today's missions</h3><button class="link-btn" data-go="tasks">See all</button></div>
+    <div class="tasks" id="homeTasks"></div>
+    <p class="note">Your progress is saved to your Telegram account.</p>
+  </section>
+
+  <!-- TASKS -->
+  <section id="tasksPage" class="page">
+    <div class="section-head"><h3>🎯 Task center</h3><span class="gold" id="taskCount" style="font-size:12px;font-weight:700"></span></div>
+    <div class="card" style="margin-bottom:12px"><div class="bar"><div class="fill" id="taskBar"></div></div></div>
+    <div class="tasks" id="allTasks"></div>
+    <p class="note">Missions are checked by the server before you get paid.</p>
+  </section>
+
+  <!-- GAME -->
+  <section id="gamePage" class="page">
+    <div class="section-head"><h3>🎰 Bin Raid</h3><span class="gold" style="font-size:12px;font-weight:700"><span id="gBal">0</span> RP</span></div>
+    <div class="card">
+      <div class="odds" id="gameOdds"></div>
+      <div class="bins" id="bins">
+        <button class="bin" data-bin="0" aria-label="Bin 1">🗑️</button>
+        <button class="bin" data-bin="1" aria-label="Bin 2">🗑️</button>
+        <button class="bin" data-bin="2" aria-label="Bin 3">🗑️</button>
+      </div>
+      <div class="result" id="gameResult">Set your bet, then pick a bin.</div>
+      <div class="field"><label for="betInput">Your bet (RP)</label><input class="bet-in" id="betInput" type="number" inputmode="numeric" min="1" value="100" /></div>
+      <div class="chips">
+        <button class="chipbtn" data-bet="min">Min</button><button class="chipbtn" data-bet="100">100</button><button class="chipbtn" data-bet="500">500</button><button class="chipbtn" data-bet="1000">1,000</button><button class="chipbtn" data-bet="max">Max</button>
+      </div>
+    </div>
+    <div class="grid3" style="margin-top:10px">
+      <div class="mini"><strong id="gPlayed">0</strong><small>Rounds</small></div>
+      <div class="mini"><strong id="gWon">0</strong><small>Wins</small></div>
+      <div class="mini"><strong id="gNet">0</strong><small>Net RP</small></div>
+    </div>
+    <div class="section-head"><h3>Recent rounds</h3></div>
+    <div id="gameHistory"></div>
+    <p class="note">Only bet what you can afford to lose. Every round is random and the win chance is shown above.</p>
+  </section>
+
+  <!-- FRIENDS -->
+  <section id="referralsPage" class="page">
+    <div class="section-head"><h3>👥 Invite friends</h3></div>
+    <div class="card">
+      <strong style="font-size:18px">Rush together.</strong>
+      <p class="muted" style="font-size:12px;line-height:1.55;margin:6px 0 0">Share your link. You get <b class="gold" id="refRewardTxt">100 RP</b> and a notification each time a friend joins.</p>
+      <div class="ref-link"><input id="referralLink" readonly aria-label="Your invite link" /><button class="btn" id="copyBtn">Copy</button></div>
+      <div class="grid3">
+        <div class="mini"><strong id="refCount">0</strong><small>Invites</small></div>
+        <div class="mini"><strong id="refQual">0</strong><small>Qualified</small></div>
+        <div class="mini"><strong id="refPoints">0</strong><small>RP earned</small></div>
+      </div>
+      <button class="btn block" style="margin-top:14px" id="shareBtn">Invite friends</button>
+    </div>
+    <div class="section-head"><h3>Invite bonuses</h3></div>
+    <div id="milestones"></div>
+    <button class="btn ghost block" style="margin-top:16px" data-go="board" data-btab-go="rank">🏆 View leaderboard</button>
+    
+  </section>
+
+  <!-- WALLET -->
+  <section id="walletPage" class="page">
+    <div class="section-head"><h3>💰 Wallet</h3></div>
+    <div class="bal2">
+      <div class="bal"><small>Raccoon points</small><strong><span id="wRP">0</span> RP</strong></div>
+      <div class="bal ton"><small>TON balance</small><strong><span id="wTON">0</span> TON</strong></div>
+    </div>
+
+    <div class="section-head"><h3>1. Swap RP to TON</h3></div>
+    <div class="card">
+      <div class="muted" style="font-size:12px" id="rateLine"></div>
+      <div class="field"><label for="swapAmt">RP to swap</label>
+        <div class="input-row"><input id="swapAmt" type="number" inputmode="numeric" min="1" placeholder="0" /><button class="btn ghost" id="swapMax">Max</button></div></div>
+      <div class="preview" id="swapPreview"></div>
+      <button class="btn block ready" style="margin-top:12px" id="swapBtn">Swap to TON</button>
+    </div>
+
+    <div class="section-head"><h3>2. Withdraw TON</h3></div>
+    <div class="card">
+      <div class="field"><label for="tonAddr">Your TON wallet address</label><input id="tonAddr" type="text" placeholder="UQ… or EQ…" autocomplete="off" autocapitalize="off" spellcheck="false" /></div>
+      <div class="field"><label for="wdAmt">TON to withdraw</label>
+        <div class="input-row"><input id="wdAmt" type="number" inputmode="decimal" step="any" placeholder="0.00" /><button class="btn ghost" id="wdMax">Max</button></div></div>
+      <div class="preview" id="wdPreview"></div>
+      <button class="btn block ready" style="margin-top:12px" id="wdBtn">Withdraw</button>
+    </div>
+
+    <div class="section-head"><h3>Withdrawal history</h3></div>
+    <div id="wHistory"></div>
+    <button class="btn ghost block" style="margin-top:14px" id="payChBtn">View payment channel</button>
+    <p class="note">When a withdrawal is paid you get a notification with a TonScan link, and the payment is posted in the payment channel.</p>
+  </section>
+
+  <!-- BOARD -->
+  <section id="boardPage" class="page">
+    <div class="section-head"><h3>🏆 Rankings</h3><button class="back" data-go="home">‹ Home</button></div>
+    <div class="chips" id="boardTabs" style="margin:0 0 12px">
+      <button class="chipbtn on" data-btab="rank">Top earners</button>
+      <button class="chipbtn" data-btab="refs">Top inviters</button>
+      <button class="chipbtn" data-btab="pay"><span class="live-dot"></span>Live payouts</button>
+    </div>
+    <div class="board" id="boardList"></div>
+    <p class="note" id="boardNote"></p>
+  </section>
+
+  <!-- INBOX -->
+  <section id="inboxPage" class="page">
+    <div class="section-head"><h3>🔔 Notifications</h3><button class="back" data-go="home">‹ Home</button></div>
+    <div id="inboxList"></div>
+    <p class="note">Important updates are also sent to you in Telegram.</p>
+  </section>
+
+  <!-- EVOLVE -->
+  <section id="evolvePage" class="page">
+    <div class="section-head"><h3>✨ Evolution lab</h3><button class="back" data-go="home">‹ Home</button></div>
+    <div class="card evo-hero">
+      <div class="stage">
+        <div class="aura"></div><div class="ring"></div><div class="ring two"></div>
+        <div class="acc" id="evoAcc"></div>
+        <div class="mascot" style="cursor:default">🦝</div>
+      </div>
+      <h2 id="evolveTitle">Baby Raccoon</h2>
+      <div class="muted" id="evolveSub" style="font-size:12px;margin-bottom:12px"></div>
+      <div class="bar"><div class="fill" id="xpBar2"></div></div>
+    </div>
+    <div class="timeline" id="timeline"></div>
+  </section>
+
+  <!-- PROFILE -->
+  <section id="profilePage" class="page">
+    <div class="section-head"><h3>👤 Your profile</h3><button class="back" data-go="home">‹ Home</button></div>
+    <div class="card p-head">
+      <div class="avatar">🦝</div>
+      <h2 id="profileName">Rusher</h2>
+      <div class="muted" style="font-size:12px" id="profileSub"></div>
+    </div>
+    <div class="grid3" style="margin-top:10px">
+      <div class="mini"><strong id="pTaps">0</strong><small>Total taps</small></div>
+      <div class="mini"><strong id="pMissions">0</strong><small>Missions done</small></div>
+      <div class="mini"><strong id="pBest">0</strong><small>Best streak</small></div>
+    </div>
+    <div class="section-head"><h3>🎖️ Badges</h3><span class="muted" id="badgeCount" style="font-size:12px"></span></div>
+    <div class="badges" id="badges"></div>
+    <p class="note">Your progress is saved to your Telegram account.</p>
+  </section>
+</main>
+
+<nav class="bottom-nav" aria-label="Main navigation">
+  <button class="nav-item active" data-page="home" data-go="home"><span>🏠</span>Home</button>
+  <button class="nav-item" data-page="tasks" data-go="tasks"><span>🎯</span>Tasks<i class="dot" id="taskDot"></i></button>
+  <button class="nav-item" data-page="game" data-go="game"><span>🎰</span>Game</button>
+  <button class="nav-item" data-page="referrals" data-go="referrals"><span>👥</span>Friends</button>
+  <button class="nav-item" data-page="wallet" data-go="wallet"><span>💰</span>Wallet</button>
+</nav>
+
+<div class="notice" id="notice" role="status" aria-live="polite"></div>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="box">
+    <div class="big" id="mBig">🦝</div>
+    <h2 id="mTitle">Level 2</h2>
+    <p id="mText"></p>
+    <button class="btn block ready" id="mClose">Keep going</button>
+  </div>
+</div>
+
+
+<script>
+/* Raccoon Rush: mini app (talks to your Supabase edge function) */
+const API = "https://qcxtajojlkqhgesbciwx.supabase.co/functions/v1/rr-api";
+const ENERGY_REGEN_MS = 1500;
+
+const STAGES = [
+  { lvl: 1,  name: "Baby Raccoon",   acc: "",   color: "#ffc52e", rgb: "255,197,46" },
+  { lvl: 3,  name: "Rookie Raccoon", acc: "🧢", color: "#3df5c8", rgb: "61,245,200" },
+  { lvl: 6,  name: "Hero Raccoon",   acc: "🕶️", color: "#ff4fd8", rgb: "255,79,216" },
+  { lvl: 10, name: "Legend Raccoon", acc: "👑", color: "#ff8a1f", rgb: "255,138,31" },
+  { lvl: 15, name: "Mythic Raccoon", acc: "🌟", color: "#7df9ff", rgb: "125,249,255" }
+];
+const REWARDS = [20, 30, 40, 50, 75, 100, 200];
+const joinedClick = () => { try { return localStorage.getItem("rr_join") === "1"; } catch (e) { return false; } };
+const TASKS = [
+  { id: "channel", icon: "✈️", title: "Join the official Telegram channel", reward: 50, xp: 10, target: 1, prog: () => joinedClick() ? 1 : 0 },
+  { id: "profile", icon: "🪪", title: "Open your raccoon profile", reward: 15, xp: 10, target: 1, prog: () => S.flags.profile ? 1 : 0 },
+  { id: "tap100", icon: "👆", title: "Tap your raccoon 100 times", reward: 40, xp: 15, target: 100, prog: () => S.taps },
+  { id: "level3", icon: "⭐", title: "Reach level 3", reward: 100, xp: 20, target: 3, prog: () => S.level },
+  { id: "tap1000", icon: "⚡", title: "Tap your raccoon 1,000 times", reward: 250, xp: 40, target: 1000, prog: () => S.taps },
+  { id: "missions", icon: "🔥", title: "Finish 4 other missions", reward: 150, xp: 30, target: 4, prog: () => TASKS.filter(t => t.id !== "missions" && S.done[t.id]).length }
+];
+const BADGES = [
+  { id: "first", icon: "🐾", name: "First tap",    test: () => S.taps >= 1 },
+  { id: "t100",  icon: "👆", name: "100 taps",     test: () => S.taps >= 100 },
+  { id: "t1k",   icon: "⚡", name: "1,000 taps",   test: () => S.taps >= 1000 },
+  { id: "l3",    icon: "⭐", name: "Level 3",      test: () => S.level >= 3 },
+  { id: "l6",    icon: "🕶️", name: "Level 6",     test: () => S.level >= 6 },
+  { id: "s3",    icon: "🔥", name: "3-day streak", test: () => S.best >= 3 },
+  { id: "s7",    icon: "🏆", name: "7-day streak", test: () => S.best >= 7 },
+  { id: "pay",   icon: "💎", name: "First payout", test: () => S.withdrawals.some(w => w.status === "success") }
+];
+const MILESTONES = [ { n: 1, icon: "🎟️", rp: 100 }, { n: 5, icon: "🎁", rp: 600 }, { n: 10, icon: "💎", rp: 1500 } ];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = n => Math.floor(n).toLocaleString();
+const r6 = n => Math.round(n * 1e6) / 1e6;
+const fmtTon = n => (Math.round(n * 1e4) / 1e4).toLocaleString(undefined, { maximumFractionDigits: 4 });
+const short = a => a.length > 14 ? a.slice(0, 6) + "…" + a.slice(-6) : a;
+const when = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const tg = window.Telegram && window.Telegram.WebApp;
+const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+let S = null, CFG = { swapRate: 10000, swapFee: 2, withdrawFee: 0.05, minWithdraw: 0.5, refReward: 100, winChance: 45, multiplier: 2, minBet: 10, maxBet: 5000, botLink: "", channelLink: "", payChannelLink: "" };
+let currentPage = "home", working = false, busy = false, pend = 0, flushing = null, flushTimer = null, resetArmed = false;
+
+/* ---------- server ---------- */
+async function api(action, data) {
+  let r;
+  try {
+    r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, initData: tg ? tg.initData : "" }, data || {})) });
+  } catch (e) { throw new Error("No connection. Check your internet and try again."); }
+  let j = null;
+  try { j = await r.json(); } catch (e) {}
+  if (!j) throw new Error("Server problem. Please try again.");
+  if (!j.ok) throw new Error(j.error || "Something went wrong.");
+  return j;
+}
+function applyState(st) {
+  const u = st.user;
+  S = Object.assign({}, u, { withdrawals: st.withdrawals || [], notifs: st.notifs || [], games: st.games || [], board: st.board || [] });
+  CFG = st.cfg;
+  if (pend > 0) { S.points += pend * tapValue(); S.taps += pend; S.energy = Math.max(0, S.energy - pend); }
+}
+async function act(action, data) {
+  await flushTaps();
+  const r = await api(action, data);
+  applyState(r.state);
+  return r;
+}
+async function run(fn) {
+  if (working) return;
+  working = true;
+  try { await fn(); } catch (e) { notify(e.message); } finally { working = false; }
+}
+
+/* ---------- helpers ---------- */
+const xpNeed = lv => 100 + (lv - 1) * 50;
+const energyMax = () => 100 + (S.level - 1) * 10;
+const tapValue = () => 1 + Math.floor((S.level - 1) / 2);
+const stageIndex = () => { let i = 0; STAGES.forEach((s, k) => { if (S.level >= s.lvl) i = k; }); return i; };
+const stage = () => STAGES[stageIndex()];
+const refLink = () => CFG.botLink + "ref_" + S.id;
+function haptic(kind) {
+  try {
+    if (tg && tg.HapticFeedback) kind === "ok" ? tg.HapticFeedback.notificationOccurred("success") : tg.HapticFeedback.impactOccurred("light");
+    else if (navigator.vibrate) navigator.vibrate(kind === "ok" ? 25 : 8);
+  } catch (e) {}
+}
+let noticeTimer;
+function notify(msg) {
+  const el = $("notice"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(noticeTimer); noticeTimer = setTimeout(() => el.classList.remove("show"), 2800);
+}
+function openLink(url) {
+  try {
+    if (tg) (/^https:\/\/t\.me\//.test(url) ? tg.openTelegramLink(url) : tg.openLink(url));
+    else window.open(url, "_blank", "noopener");
+  } catch (e) { window.open(url, "_blank", "noopener"); }
+}
+function copyText(text, msg) {
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(() => notify(msg)).catch(() => notify("Copy failed. Select the text and copy it."));
+  else { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); notify(msg); } catch (e) { notify("Copy failed."); } t.remove(); }
+}
+function renderBell() {
+  const n = S ? S.notifs.filter(x => !x.read).length : 0, el = $("bellCount");
+  el.textContent = n > 9 ? "9+" : n; el.classList.toggle("on", n > 0);
+}
+
+/* ---------- tapping (batched, the server is the judge) ---------- */
+function tap(x, y) {
+  if (!S || $("gate").classList.contains("show")) return;
+  if (S.energy < 1) {
+    notify("Out of energy. It refills while you wait.");
+    $("mascot").animate([{ transform: "translateX(0)" }, { transform: "translateX(-8px)" }, { transform: "translateX(8px)" }, { transform: "translateX(0)" }], { duration: 220 });
+    return;
+  }
+  const v = tapValue();
+  S.energy -= 1; S.points += v; S.taps++; pend++;
+  if (S.taps % 10 === 0) { S.xp = Math.min(S.xp + 1, xpNeed(S.level)); renderTasks(); }
+  haptic();
+  $("mascot").animate([{ transform: "scale(1)" }, { transform: "scale(.9) rotate(-3deg)" }, { transform: "scale(1)" }], { duration: 140 });
+  const f = document.createElement("div");
+  f.className = "float"; f.textContent = "+" + v;
+  f.style.left = (x + (Math.random() * 40 - 20)) + "px"; f.style.top = y + "px";
+  document.body.appendChild(f); setTimeout(() => f.remove(), 900);
+  hud();
+  if (pend >= 30) flushTaps(); else if (!flushTimer) flushTimer = setTimeout(() => { flushTimer = null; flushTaps(); }, 2000);
+}
+async function flushTaps() {
+  if (flushing) await flushing;
+  if (pend <= 0) return;
+  const n = pend; pend = 0; clearTimeout(flushTimer); flushTimer = null;
+  flushing = (async () => {
+    try {
+      const r = await api("tap", { n });
+      applyState(r.state);
+      if (r.leveled) levelUp();
+      render();
+    } catch (e) {
+      notify(e.message);
+      try { applyState((await api("state")).state); render(); } catch (e2) {}
+    } finally { flushing = null; }
+  })();
+  await flushing;
+}
+$("mascot").addEventListener("pointerdown", e => { e.preventDefault(); tap(e.clientX, e.clientY); });
+$("mascot").addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); const r = $("mascot").getBoundingClientRect(); tap(r.left + r.width / 2, r.top + r.height / 2); }
+});
+document.addEventListener("visibilitychange", () => { if (document.hidden) flushTaps(); });
+
+/* ---------- actions ---------- */
+const checkIn = () => run(async () => {
+  const r = await act("checkin");
+  notify("Day " + r.day + " claimed: +" + r.reward + " RP"); haptic("ok");
+  if (r.leveled) levelUp();
+  render();
+});
+$("checkInBtn").addEventListener("click", checkIn);
+
+const claim = id => run(async () => {
+  const r = await act("claim", { task: id });
+  notify("Mission claimed: +" + r.reward + " RP"); haptic("ok");
+  if (r.leveled) levelUp();
+  render();
+});
+function joinChannel() {
+  try { localStorage.setItem("rr_join", "1"); } catch (e) {}
+  openLink(CFG.channelLink);
+  notify("Join the channel, then come back and tap Verify.");
+  renderTasks();
+}
+const swap = () => run(async () => {
+  const rp = Math.floor(Number($("swapAmt").value));
+  if (!(rp > 0)) throw new Error("Enter how many RP to swap.");
+  const r = await act("swap", { rp });
+  $("swapAmt").value = ""; notify("Swapped to " + fmtTon(r.net) + " TON"); haptic("ok"); render();
+});
+const withdraw = () => run(async () => {
+  await act("withdraw", { address: $("tonAddr").value.trim(), amount: Number($("wdAmt").value) });
+  $("wdAmt").value = ""; notify("Withdrawal requested. You will be notified when it is paid."); haptic("ok"); render();
+});
+
+/* ---------- game (the server rolls the dice) ---------- */
+function betValue(kind) {
+  if (kind === "min") return CFG.minBet;
+  if (kind === "max") return Math.max(CFG.minBet, Math.min(CFG.maxBet, Math.floor(S.points)));
+  return Math.min(Number(kind), CFG.maxBet);
+}
+async function playBin(i) {
+  if (busy || working || !S) return;
+  const bet = Math.floor(Number($("betInput").value));
+  if (!(bet >= CFG.minBet)) return notify("Minimum bet is " + fmt(CFG.minBet) + " RP.");
+  if (bet > CFG.maxBet) return notify("Maximum bet is " + fmt(CFG.maxBet) + " RP.");
+  if (bet > S.points) return notify("You don't have enough RP for that bet.");
+  busy = true; working = true;
+  const bins = [...document.querySelectorAll(".bin")], res = $("gameResult");
+  bins.forEach(b => { b.disabled = true; b.className = "bin shake"; b.textContent = "🗑️"; });
+  res.className = "result"; res.textContent = "Shaking the bins…";
+  haptic();
+  try {
+    await flushTaps();
+    S.points -= bet; hud();
+    const [r] = await Promise.all([api("play", { bet, bin: i }), sleep(900)]);
+    applyState(r.state);
+    bins.forEach((b, k) => {
+      b.className = "bin";
+      if (k === r.prize) { b.textContent = "💰"; b.classList.add(r.win ? "win" : "prize"); }
+      else { b.textContent = "💨"; if (k === i) b.classList.add("lose"); }
+    });
+    res.className = "result " + (r.win ? "win" : "lose");
+    res.textContent = r.win ? "You won +" + fmt(r.payout - bet) + " RP!" : "Empty bin. You lost " + fmt(bet) + " RP.";
+    haptic(r.win ? "ok" : undefined); if (r.win) confetti();
+    if (r.leveled) levelUp();
+    render();
+    await sleep(1700);
+  } catch (e) {
+    notify(e.message);
+    try { applyState((await api("state")).state); } catch (e2) {}
+    res.className = "result"; res.textContent = "Set your bet, then pick a bin.";
+    render();
+  } finally {
+    bins.forEach(b => { b.className = "bin"; b.textContent = "🗑️"; b.disabled = false; });
+    busy = false; working = false;
+  }
+}
+
+/* ---------- navigation ---------- */
+function showPage(page) {
+  if (!S) return;
+  currentPage = page;
+  document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
+  $(page + "Page").classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(el => el.classList.toggle("active", el.dataset.page === page));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  render();
+  if (page === "board") renderFeed();
+  if (page === "board" || page === "home") loadFeed();
+  if (page === "profile" && !S.flags.profile) {
+    S.flags.profile = true; renderTasks();
+    api("profile").then(r => { applyState(r.state); render(); }).catch(() => {});
+  }
+  if (page === "inbox" && S.notifs.some(n => !n.read)) {
+    api("read").then(r => { applyState(r.state); renderBell(); }).catch(() => {});
+  }
+}
+
+/* ---------- referral ---------- */
+function copyRef() { copyText(refLink(), "Invite link copied!"); }
+function shareRef() {
+  const url = refLink(), text = "Join my Raccoon Rush crew!";
+  if (tg && tg.openTelegramLink) tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(url) + "&text=" + encodeURIComponent(text));
+  else if (navigator.share) navigator.share({ title: "Raccoon Rush", text, url }).catch(() => {});
+  else copyRef();
+}
+
+/* ---------- wallet previews ---------- */
+function swapQuote(rp) { const gross = rp / CFG.swapRate, fee = gross * CFG.swapFee / 100; return { fee, net: r6(gross - fee) }; }
+function renderSwapPreview() {
+  const rp = Math.floor(Number($("swapAmt").value)) || 0, q = swapQuote(rp);
+  $("swapPreview").innerHTML = "You get <b>" + fmtTon(q.net) + " TON</b><br>Swap fee " + CFG.swapFee + "% = " + fmtTon(q.fee) + " TON";
+}
+function renderWdPreview() {
+  const amt = Number($("wdAmt").value) || 0, net = Math.max(0, r6(amt - CFG.withdrawFee));
+  $("wdPreview").innerHTML = "Withdrawal fee <b>" + fmtTon(CFG.withdrawFee) + " TON</b> · You receive <b>" + fmtTon(net) + " TON</b><br>Minimum withdrawal: " + fmtTon(CFG.minWithdraw) + " TON";
+}
+
+/* ---------- tasks ---------- */
+function taskState(t) { return S.done[t.id] ? "done" : (t.prog() >= t.target ? "ready" : "pending"); }
+function taskHTML(t) {
+  const st = taskState(t), p = Math.min(t.prog(), t.target); let btn;
+  if (st === "done") btn = '<button class="btn done" disabled>Done ✓</button>';
+  else if (st === "ready") btn = '<button class="btn ready" data-claim="' + t.id + '">' + (t.id === "channel" ? "Verify" : "Claim") + "</button>";
+  else if (t.id === "channel") btn = '<button class="btn" data-join="1">Join</button>';
+  else btn = '<button class="btn" disabled>' + fmt(p) + "/" + fmt(t.target) + "</button>";
+  const bar = (t.target > 1 && st !== "done") ? '<div class="bar thin"><div class="fill" style="width:' + (p / t.target * 100) + '%"></div></div>' : "";
+  return '<div class="task ' + (st === "ready" ? "ready" : st === "done" ? "finished" : "") + '"><div class="t-icon">' + t.icon + '</div><div class="t-info"><strong>' + t.title + "</strong><small>+" + t.reward + " RP · +" + t.xp + " XP</small>" + bar + "</div>" + btn + "</div>";
+}
+function renderTasks() {
+  const open = TASKS.filter(t => !S.done[t.id]);
+  $("homeTasks").innerHTML = open.length ? open.slice(0, 3).map(taskHTML).join("") : '<div class="empty">All missions complete. New ones are coming soon.</div>';
+  const o = { ready: 0, pending: 1, done: 2 };
+  $("allTasks").innerHTML = TASKS.slice().sort((a, b) => o[taskState(a)] - o[taskState(b)]).map(taskHTML).join("");
+  const dn = TASKS.filter(t => S.done[t.id]).length;
+  $("taskCount").textContent = dn + " / " + TASKS.length + " complete";
+  $("taskBar").style.width = (dn / TASKS.length * 100) + "%";
+  $("taskDot").classList.toggle("on", TASKS.some(t => taskState(t) === "ready") || !S.checkedToday);
+  return dn;
+}
+
+/* ---------- level up ---------- */
+function levelUp() {
+  $("mTitle").textContent = "Level " + S.level;
+  $("mText").textContent = stage().name + " · +100 RP bonus · more max energy";
+  $("modal").classList.add("show"); haptic("ok"); confetti();
+}
+
+/* ---------- render ---------- */
+function hud() {
+  if (!S) return;
+  const st = stage(), root = document.documentElement.style;
+  root.setProperty("--aura", st.color); root.setProperty("--aura-rgb", st.rgb);
+  $("points").textContent = fmt(S.points); $("gBal").textContent = fmt(S.points);
+  $("tapVal").textContent = "+" + tapValue() + " RP";
+  $("energy").textContent = Math.floor(S.energy); $("energyMax").textContent = energyMax();
+  $("energyBar").style.width = Math.min(100, S.energy / energyMax() * 100) + "%";
+  $("levelName").textContent = "Level " + S.level + " · " + st.name;
+  $("xp").textContent = S.xp; $("xpNeed").textContent = xpNeed(S.level);
+  const pct = Math.min(100, S.xp / xpNeed(S.level) * 100) + "%";
+  $("xpBar").style.width = pct; $("xpBar2").style.width = pct;
+  $("homeAcc").textContent = st.acc; $("evoAcc").textContent = st.acc;
+  $("wRP").textContent = fmt(S.points); $("wTON").textContent = fmtTon(S.ton);
+}
+function render() {
+  if (!S) return;
+  hud();
+  $("userName").textContent = S.name; $("profileName").textContent = S.name;
+  const live = S.streak, claimed = S.checkedToday;
+  $("streakNum").textContent = live;
+  const inCycle = claimed ? ((live - 1) % 7) + 1 : live % 7;
+  $("week").innerHTML = REWARDS.map((r, i) => '<div class="day ' + (i < inCycle ? "got" : (!claimed && i === inCycle ? "today" : "")) + '">Day ' + (i + 1) + "<b>" + (i < inCycle ? "✓" : "+" + r) + "</b></div>").join("");
+  $("checkInBtn").disabled = claimed; $("checkInBtn").classList.toggle("ready", !claimed);
+  $("checkInBtn").textContent = claimed ? "Claimed today ✓" : "Claim +" + REWARDS[live % 7] + " RP";
+  $("checkInHint").textContent = claimed ? "Come back tomorrow" : "Ready now";
+  const dn = renderTasks();
+
+  $("gameOdds").innerHTML = "Win chance <b>" + CFG.winChance + "%</b> · Pays <b>" + CFG.multiplier + "×</b> your bet · Bets " + fmt(CFG.minBet) + " to " + fmt(CFG.maxBet) + " RP";
+  $("gPlayed").textContent = S.gPlayed; $("gWon").textContent = S.gWon; $("gNet").textContent = (S.gNet > 0 ? "+" : "") + fmt(S.gNet);
+  $("gameHistory").innerHTML = S.games.length ? S.games.map(g => '<div class="tx"><div class="top"><strong>' + (g.win ? "+" + fmt(g.payout - g.bet) : "-" + fmt(g.bet)) + ' RP</strong><span class="pill ' + (g.win ? "success" : "rejected") + '">' + (g.win ? "Win" : "Loss") + "</span></div><small>Bet " + fmt(g.bet) + " RP · " + when(g.t) + "</small></div>").join("") : '<div class="empty">No rounds yet. Place a bet and pick a bin.</div>';
+
+  $("referralLink").value = refLink(); $("refRewardTxt").textContent = fmt(CFG.refReward) + " RP";
+  $("refCount").textContent = S.refCount; $("refQual").textContent = S.refQual; $("refPoints").textContent = fmt(S.refPoints);
+  $("milestones").innerHTML = MILESTONES.map(m => '<div class="milestone"><span class="m-ico">' + m.icon + '</span><div class="grow"><strong>Invite ' + m.n + " friend" + (m.n > 1 ? "s" : "") + "</strong><br><small>+" + fmt(m.rp) + ' RP bonus</small></div><span class="' + (S.ms[m.n] ? "gold" : "muted") + '">' + Math.min(S.refQual, m.n) + "/" + m.n + "</span></div>").join("");
+  $("rateLine").textContent = "Rate: " + fmt(CFG.swapRate) + " RP = 1 TON · Swap fee " + CFG.swapFee + "%";
+  renderSwapPreview(); renderWdPreview();
+  $("wHistory").innerHTML = S.withdrawals.length ? S.withdrawals.map(w => '<div class="tx"><div class="top"><strong>' + fmtTon(w.net) + ' TON</strong><span class="pill ' + w.status + '">' + w.status[0].toUpperCase() + w.status.slice(1) + "</span></div><small>" + esc(short(w.address)) + " · " + when(w.t) + "</small>" + (w.status === "success" && w.url ? '<small><a href="' + esc(w.url) + '" data-open="' + esc(w.url) + '">View on TonScan</a></small>' : "") + "</div>").join("") : '<div class="empty">No withdrawals yet. Swap RP to TON, then withdraw to your wallet.</div>';
+
+  $("inboxList").innerHTML = S.notifs.length ? S.notifs.map(n => '<div class="notif ' + (n.read ? "" : "unread") + '"><div class="n-ico">' + ({ withdraw: "💸", referral: "👥", swap: "🔄" }[n.type] || "🔔") + "</div><div><strong>" + esc(n.title) + "</strong><p>" + esc(n.body) + "</p>" + (n.link ? '<a href="' + esc(n.link) + '" data-open="' + esc(n.link) + '">' + esc(n.linkText || "Open") + "</a>" : "") + "<time>" + when(n.t) + "</time></div></div>").join("") : '<div class="empty">No notifications yet. Withdrawals and referrals show up here.</div>';
+  renderBell();
+
+  const idx = stageIndex(), st = STAGES[idx], nx = STAGES[idx + 1];
+  $("evolveTitle").textContent = st.name;
+  $("evolveSub").textContent = nx ? "Next form at level " + nx.lvl + " (" + (nx.lvl - S.level) + " level" + (nx.lvl - S.level > 1 ? "s" : "") + " to go)" : "Final form reached. You are a legend.";
+  $("timeline").innerHTML = STAGES.map((s, i) => '<div class="step ' + (i === idx ? "current" : i < idx ? "passed" : "locked") + '" style="--c:' + s.color + ";--cg:rgba(" + s.rgb + ',.45)"><div class="s-ico">🦝<i>' + (s.acc || "") + "</i></div><div><strong>" + s.name + "</strong><small>" + (i === idx ? "Current form" : i < idx ? "Unlocked" : "Unlocks at level " + s.lvl) + "</small></div></div>").join("");
+
+  $("profileSub").textContent = "Level " + S.level + " · " + st.name;
+  $("pTaps").textContent = fmt(S.taps); $("pMissions").textContent = dn; $("pBest").textContent = S.best;
+  const earned = BADGES.filter(b => b.test());
+  $("badges").innerHTML = BADGES.map(b => '<div class="badge ' + (earned.includes(b) ? "on" : "") + '"><span>' + b.icon + "</span>" + b.name + "</div>").join("");
+  $("badgeCount").textContent = earned.length + " / " + BADGES.length;
+}
+
+
+/* ---------- leaderboard + live payouts ---------- */
+let FEED = null, boardTab = "rank";
+const ago = t => { const s = Math.max(0, (Date.now() - t) / 1000); if (s < 60) return "just now"; if (s < 3600) return Math.floor(s / 60) + " min ago"; if (s < 86400) return Math.floor(s / 3600) + " h ago"; return Math.floor(s / 86400) + " d ago"; };
+function payoutHTML(p) {
+  return '<div class="tx"><div class="top"><strong>💎 ' + fmtTon(p.net) + ' TON</strong><span class="pill success">Paid</span></div><small>' + esc(p.name) + " · " + esc(short(p.address)) + " · " + ago(p.t) + '</small><small><a href="' + esc(p.url) + '" data-open="' + esc(p.url) + '">View on TonScan</a></small></div>';
+}
+function renderFeed() {
+  if (!FEED || !S) return;
+  const pays = FEED.payouts || [];
+  $("homePayouts").innerHTML = pays.length ? pays.slice(0, 3).map(payoutHTML).join("") : '<div class="empty">No payouts yet. Be the first to cash out.</div>';
+  const medal = i => ["🥇", "🥈", "🥉"][i] || (i + 1);
+  const rows = (list, unit) => list.map((r, i) => '<div class="rank ' + (r.me ? "you" : "") + '"><span class="pos">' + medal(i) + '</span><span class="nm">' + esc(r.n) + (r.me ? " (you)" : "") + '</span><span class="pt">' + fmt(r.p) + " " + unit + "</span></div>").join("");
+  const mine = (rank, val, unit) => '<div class="rank you"><span class="pos">#' + rank + '</span><span class="nm">' + esc(S.name) + ' (you)</span><span class="pt">' + fmt(val) + " " + unit + "</span></div>";
+  let html, note = "";
+  if (boardTab === "pay") {
+    html = pays.length ? pays.map(payoutHTML).join("") : '<div class="empty">No payouts yet.</div>';
+    note = "Updates live while you watch. Every payment links to TonScan.";
+  } else if (boardTab === "refs") {
+    const l = FEED.refBoard || [];
+    html = l.length ? rows(l, "invites") : '<div class="empty">No inviters yet. Share your link to take the top spot.</div>';
+    if (!l.some(r => r.me)) html += mine(FEED.refRank, S.refCount, "invites");
+  } else {
+    const l = FEED.board || [];
+    html = rows(l, "RP");
+    if (!l.some(r => r.me)) html += mine(FEED.rank, S.lifetime, "RP");
+    note = "Ranked by total RP earned.";
+  }
+  $("boardList").innerHTML = html; $("boardNote").textContent = note;
+  document.querySelectorAll("#boardTabs .chipbtn").forEach(b => b.classList.toggle("on", b.dataset.btab === boardTab));
+}
+async function loadFeed() { try { FEED = (await api("feed")).feed; renderFeed(); } catch (e) {} }
+
+/* ---------- events ---------- */
+document.addEventListener("click", e => {
+  const t = e.target; let el;
+  if ((el = t.closest("[data-open]"))) { e.preventDefault(); return openLink(el.dataset.open); }
+  if ((el = t.closest("[data-claim]"))) return claim(el.dataset.claim);
+  if (t.closest("[data-join]")) return joinChannel();
+  if ((el = t.closest("[data-bet]"))) { $("betInput").value = betValue(el.dataset.bet); return; }
+  if ((el = t.closest("[data-bin]"))) return playBin(Number(el.dataset.bin));
+  if ((el = t.closest("[data-btab]"))) { boardTab = el.dataset.btab; return renderFeed(); }
+  if ((el = t.closest("[data-go]"))) { if (el.dataset.btabGo) boardTab = el.dataset.btabGo; return showPage(el.dataset.go); }
+});
+document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[role="button"][data-go]')) { e.preventDefault(); showPage(e.target.dataset.go); } });
+$("copyBtn").addEventListener("click", copyRef);
+$("shareBtn").addEventListener("click", shareRef);
+$("swapAmt").addEventListener("input", () => S && renderSwapPreview());
+$("wdAmt").addEventListener("input", () => S && renderWdPreview());
+$("swapMax").addEventListener("click", () => { $("swapAmt").value = Math.floor(S.points); renderSwapPreview(); });
+$("wdMax").addEventListener("click", () => { $("wdAmt").value = S.ton; renderWdPreview(); });
+$("swapBtn").addEventListener("click", swap);
+$("wdBtn").addEventListener("click", withdraw);
+$("payChBtn").addEventListener("click", () => openLink(CFG.payChannelLink));
+$("mClose").addEventListener("click", () => $("modal").classList.remove("show"));
+$("gateRetry").addEventListener("click", () => location.reload());
+
+/* ---------- timers ---------- */
+setInterval(() => {
+  if (S && S.energy < energyMax()) { S.energy = Math.min(energyMax(), S.energy + 1000 / ENERGY_REGEN_MS); hud(); }
+}, 1000);
+setInterval(() => { if (S && !document.hidden && (currentPage === "board" || currentPage === "home")) loadFeed(); }, 15000);
+// pick up referrals, approvals and notifications while the app is open
+setInterval(async () => {
+  if (!S || document.hidden || working || busy || pend > 0) return;
+  try {
+    const before = S.notifs.filter(n => !n.read).length;
+    const r = await api("state");
+    if (working || busy || pend > 0) return;
+    applyState(r.state); render();
+    const unread = S.notifs.filter(n => !n.read);
+    if (unread.length > before) { notify(unread[0].title); haptic("ok"); }
+  } catch (e) {}
+}, 30000);
+
+/* ---------- glowing embers ---------- */
+(function embers() {
+  if (reduceMotion) return;
+  const c = $("embers"), ctx = c.getContext("2d"); let w, h; const ps = [];
+  function size() { w = c.width = innerWidth; h = c.height = innerHeight; }
+  size(); addEventListener("resize", size);
+  for (let i = 0; i < 38; i++) ps.push({ x: Math.random() * innerWidth, y: Math.random() * innerHeight, r: Math.random() * 2 + .6, v: Math.random() * .4 + .15, a: Math.random() * .5 + .2, d: Math.random() * 6.28 });
+  (function loop() {
+    ctx.clearRect(0, 0, w, h);
+    ps.forEach(p => {
+      p.y -= p.v; p.d += .01; p.x += Math.sin(p.d) * .25;
+      if (p.y < -10) { p.y = h + 10; p.x = Math.random() * w; }
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.28);
+      ctx.fillStyle = "rgba(255,190,50," + p.a + ")"; ctx.shadowColor = "#ffb000"; ctx.shadowBlur = 10; ctx.fill();
+    });
+    requestAnimationFrame(loop);
+  })();
+})();
+function confetti() {
+  if (reduceMotion) return;
+  const c = $("confetti"), ctx = c.getContext("2d"); c.width = innerWidth; c.height = innerHeight;
+  const cols = ["#ffc52e", "#ffe28a", "#3df5c8", "#ff4fd8", "#ff9d00", "#ffffff"];
+  const ps = Array.from({ length: 110 }, () => ({ x: innerWidth / 2, y: innerHeight * .4, vx: (Math.random() - .5) * 14, vy: Math.random() * -13 - 3, s: Math.random() * 7 + 3, c: cols[Math.floor(Math.random() * cols.length)], r: Math.random() * 6, vr: (Math.random() - .5) * .4 }));
+  let t = 0;
+  (function loop() {
+    ctx.clearRect(0, 0, c.width, c.height); t++;
+    ps.forEach(p => { p.vy += .35; p.x += p.vx; p.y += p.vy; p.r += p.vr; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 8; ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * .6); ctx.restore(); });
+    if (t < 130) requestAnimationFrame(loop); else ctx.clearRect(0, 0, c.width, c.height);
+  })();
+}
+
+/* ---------- start ---------- */
+function gate(title, text, retry) {
+  $("gateTitle").textContent = title; $("gateText").textContent = text;
+  $("gateRetry").style.display = retry ? "inline-block" : "none";
+  $("gate").classList.add("show");
+}
+(async function init() {
+  if (!tg || !tg.initData) return gate("Open from Telegram", "Raccoon Rush runs inside Telegram. Open it from the bot to play.", false);
+  try { tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor("#07060a"); tg.setBackgroundColor && tg.setBackgroundColor("#07060a"); } catch (e) {}
+  try {
+    const r = await api("init");
+    applyState(r.state); render();
+    $("gate").classList.remove("show");
+    loadFeed();
+  } catch (e) { gate("Could not load", e.message, true); }
+})();
+</script>
+</body>
+</html>
