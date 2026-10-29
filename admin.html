@@ -395,6 +395,13 @@
         <button class="btn ghost block" style="margin-top:10px" id="mjAdd">+ Add channel</button>
         <button class="btn block" style="margin-top:10px" id="mjCheck">Check my channels</button>
         <div id="mjResults"></div></div>
+      <div class="card" style="margin-top:10px"><strong>Bot welcome message</strong>
+        <div class="muted" style="font-size:11px;line-height:1.5;margin-top:4px">Sent when someone presses Start in your bot, with a button that opens the app. Save your settings, then tap Activate once.</div>
+        <div class="field"><label for="cfg_welcomeText">Message</label><textarea id="cfg_welcomeText" rows="9" maxlength="1000"></textarea></div>
+        <div class="field"><label for="cfg_welcomeButton">Button text</label><input id="cfg_welcomeButton" type="text" maxlength="30" autocomplete="off" /></div>
+        <div class="field"><label for="cfg_welcomeImage">Picture link (optional, must start with https://)</label><input id="cfg_welcomeImage" type="url" inputmode="url" autocomplete="off" /></div>
+        <button class="btn block" style="margin-top:12px" id="botConnect">Activate bot welcome message</button>
+        <div id="botStatus"></div></div>
       <div class="card" style="margin-top:10px"><strong>Channel IDs (optional)</strong>
         <div class="muted" style="font-size:11px;line-height:1.5;margin-top:4px">Leave empty for public channels. For a private channel use an ID like -1001234567890.</div><div id="fIds"></div></div>
       <div class="card" style="margin-top:10px"><strong>Swap, fees and welcome</strong><div id="fRates"></div></div>
@@ -433,6 +440,7 @@ const API = "https://qcxtajojlkqhgesbciwx.supabase.co/functions/v1/rr-admin";
 const SCALARS = {
   fLinks: [
     { k: "botLink", l: "Bot link (mini app link ending in ?startapp=)", url: 1 },
+    { k: "appUrl", l: "Mini app web link (your Vercel link)", url: 1 },
     { k: "channelLink", l: "Channel link (Join mission)", url: 1 },
     { k: "payChannelLink", l: "Payment channel link", url: 1 }
   ],
@@ -649,7 +657,8 @@ async function loadSettings() {
   try {
     const cfg = (await call("get_config")).cfg;
     Object.values(SCALARS).flat().forEach(f => { $("cfg_" + f.k).value = cfg[f.k] == null ? "" : cfg[f.k]; });
-    $("cfg_checkinXp").value = cfg.checkinXp == null ? "" : cfg.checkinXp; $("cfg_adAuto").checked = cfg.adAuto === true;
+    $("cfg_checkinXp").value = cfg.checkinXp == null ? "" : cfg.checkinXp;
+    $("cfg_welcomeText").value = cfg.welcomeText || ""; $("cfg_welcomeButton").value = cfg.welcomeButton || ""; $("cfg_welcomeImage").value = cfg.welcomeImage || ""; $("cfg_adAuto").checked = cfg.adAuto === true;
     (cfg.checkinRewards || []).forEach((v, i) => { $("ci_" + i).value = v; });
     MISSIONS.forEach(([id]) => { const m = (cfg.missions || {})[id] || {}; $("ms_" + id + "_on").checked = m.on !== false; $("ms_" + id + "_rw").value = m.rw == null ? "" : m.rw; $("ms_" + id + "_xp").value = m.xp == null ? "" : m.xp; });
     drawMS(cfg.milestones || []); drawMJ(cfg.mustJoin || []);
@@ -666,7 +675,7 @@ function updateRTP() {
 async function saveSettings() {
   const cfg = {};
   Object.values(SCALARS).flat().forEach(f => { cfg[f.k] = val("cfg_" + f.k); });
-  cfg.checkinXp = val("cfg_checkinXp"); cfg.adAuto = $("cfg_adAuto").checked;
+  cfg.checkinXp = val("cfg_checkinXp"); cfg.welcomeText = val("cfg_welcomeText"); cfg.welcomeButton = val("cfg_welcomeButton"); cfg.welcomeImage = val("cfg_welcomeImage"); cfg.adAuto = $("cfg_adAuto").checked;
   cfg.checkinRewards = [0, 1, 2, 3, 4, 5, 6].map(i => val("ci_" + i));
   cfg.missions = {}; MISSIONS.forEach(([id]) => { cfg.missions[id] = { rw: val("ms_" + id + "_rw"), xp: val("ms_" + id + "_xp"), on: $("ms_" + id + "_on").checked }; });
   cfg.milestones = readMS(); cfg.mustJoin = readMJ();
@@ -715,6 +724,14 @@ $("mjCheck").addEventListener("click", async () => {
     const r = (await call("mj_check")).results;
     box.innerHTML = r.map(x => '<div class="subrow"><div class="lbl">' + (x.ok ? "✅ " : "❌ ") + esc(x.name) + (x.chat ? " (" + esc(x.chat) + ")" : "") + '</div><div class="muted" style="font-size:12px;line-height:1.5">' + esc(x.msg) + "</div></div>").join("");
   } catch (e) { box.innerHTML = ""; notify(e.message); }
+});
+$("botConnect").addEventListener("click", async () => {
+  const box = $("botStatus"); box.innerHTML = '<div class="muted" style="font-size:12px;margin-top:10px">Connecting…</div>';
+  try {
+    const r = await call("bot_connect");
+    box.innerHTML = '<div class="rtp" style="margin-top:12px">✅ Connected' + (r.bot ? " to @" + esc(r.bot) : "") + ". Open your bot in Telegram and send /start to test it." + (r.lastError ? "<br>Telegram note: " + esc(r.lastError) : "") + "</div>";
+    notify("Bot welcome message is active.");
+  } catch (e) { box.innerHTML = '<div class="rtp bad" style="margin-top:12px">' + esc(e.message) + "</div>"; }
 });
 $("taskNew").addEventListener("click", () => taskFormShow(null));
 $("taskCancel").addEventListener("click", () => { $("taskForm").style.display = "none"; });
