@@ -448,7 +448,7 @@ const SCALARS = {
   fRates: [
     { k: "swapRate", l: "Swap rate (RP for 1 TON)" }, { k: "swapFee", l: "Swap fee (%)" },
     { k: "withdrawFee", l: "Withdrawal fee (TON)" }, { k: "minWithdraw", l: "Minimum withdrawal (TON)" },
-    { k: "refReward", l: "Referral reward (RP per friend)" }, { k: "welcomeBonus", l: "Welcome bonus for new players (RP)" }
+    { k: "refReward", l: "Referral reward (RP per friend)" }, { k: "maxAccountsPerDevice", l: "Accounts allowed per device (0 = no limit)" }, { k: "welcomeBonus", l: "Welcome bonus for new players (RP)" }
   ],
   fTaps: [
     { k: "tapReward", l: "RP per tap at level 1" }, { k: "tapLevelStep", l: "Every how many levels +1 RP per tap (0 = never)" },
@@ -683,10 +683,13 @@ async function saveSettings() {
 }
 
 /* users */
+function adjForm(id) {
+  return '<div id="adj_' + id + '" style="display:none;margin-top:10px"><div class="row2"><div class="field"><label>RP (minus removes)</label><input id="adjrp_' + id + '" type="number" inputmode="numeric" placeholder="500 or -200" /></div><div class="field"><label>TON (minus removes)</label><input id="adjton_' + id + '" type="number" inputmode="decimal" step="any" placeholder="0.5 or -0.1" /></div></div><div class="field"><label>Note for the player (optional)</label><input id="adjnote_' + id + '" type="text" maxlength="100" /></div><button class="btn block" style="margin-top:10px" data-adjgo="' + id + '">Apply change</button></div>';
+}
 async function loadUsers() {
   try {
     const list = (await call("users", { q: $("uq").value.trim() })).list;
-    $("ulist").innerHTML = list.length ? list.map(u => '<div class="tx"><div class="top"><strong>' + esc(u.name) + (u.username ? " @" + esc(u.username) : "") + '</strong><span class="pill ' + (u.banned ? "rejected" : "success") + '">' + (u.banned ? "Banned" : "Active") + "</span></div><small>ID " + u.id + " · Level " + u.level + " · " + u.refCount + " invites · joined " + when(u.joined) + "</small><small>" + fmt(u.points) + " RP · " + fmtTon(u.ton) + " TON · earned " + fmt(u.lifetime) + ' RP total</small><div class="acts"><button class="btn ' + (u.banned ? "" : "ghost") + '" data-ban="' + u.id + '" data-to="' + (u.banned ? 0 : 1) + '">' + (u.banned ? "Unban" : "Ban user") + "</button></div></div>").join("") : '<div class="empty" style="margin-top:10px">No players found.</div>';
+    $("ulist").innerHTML = list.length ? list.map(u => '<div class="tx"><div class="top"><strong>' + esc(u.name) + (u.username ? " @" + esc(u.username) : "") + '</strong><span class="pill ' + (u.banned ? "rejected" : "success") + '">' + (u.banned ? "Banned" : "Active") + "</span></div><small>ID " + u.id + " · Level " + u.level + " · " + u.refCount + " invites · joined " + when(u.joined) + "</small><small>" + fmt(u.points) + " RP · " + fmtTon(u.ton) + " TON · earned " + fmt(u.lifetime) + ' RP total</small><div class="acts"><button class="btn ' + (u.banned ? "" : "ghost") + '" data-ban="' + u.id + '" data-to="' + (u.banned ? 0 : 1) + '">' + (u.banned ? "Unban" : "Ban user") + '</button><button class="btn ghost" data-adjopen="' + u.id + '">Adjust balance</button></div>' + adjForm(u.id) + "</div>").join("") : '<div class="empty" style="margin-top:10px">No players found.</div>';
   } catch (e) { notify(e.message); }
 }
 
@@ -707,6 +710,14 @@ document.addEventListener("click", e => {
   if ((el = t.closest("[data-reject]"))) return decide(el.dataset.reject, false);
   if ((el = t.closest("[data-copy]"))) { navigator.clipboard && navigator.clipboard.writeText(el.dataset.copy).then(() => notify("Address copied.")).catch(() => {}); return; }
   if ((el = t.closest("[data-ban]"))) { call("ban", { uid: el.dataset.ban, banned: el.dataset.to === "1" }).then(loadUsers).catch(e => notify(e.message)); return; }
+  if ((el = t.closest("[data-adjopen]"))) { const f = $("adj_" + el.dataset.adjopen); f.style.display = f.style.display === "none" ? "block" : "none"; return; }
+  if ((el = t.closest("[data-adjgo]"))) {
+    const id = el.dataset.adjgo;
+    call("adjust", { uid: id, rp: $("adjrp_" + id).value.trim(), ton: $("adjton_" + id).value.trim(), note: $("adjnote_" + id).value.trim() })
+      .then(r => { notify(r.name + " now has " + fmt(r.points) + " RP and " + fmtTon(r.ton) + " TON."); loadUsers(); })
+      .catch(e => notify(e.message));
+    return;
+  }
   if ((el = t.closest("[data-tedit]"))) return taskFormShow(tasksCache.find(x => String(x.id) === el.dataset.tedit));
   if ((el = t.closest("[data-bcresume]"))) return runBroadcast(Number(el.dataset.bcresume));
   if ((el = t.closest("[data-mjdel]"))) { const l = readMJ(); l.splice(Number(el.dataset.mjdel), 1); return drawMJ(l); }

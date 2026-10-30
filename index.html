@@ -583,11 +583,24 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let S = null, CFG = { swapRate: 10000, swapFee: 2, withdrawFee: 0.05, minWithdraw: 0.5, refReward: 100, winChance: 45, multiplier: 2, minBet: 10, maxBet: 5000, botLink: "", channelLink: "", payChannelLink: "", tapLevelStep: 2, adReward: 10, adDailyLimit: 20, adCooldown: 30, levelBonus: 100, tapsPerXp: 10 };
 let currentPage = "home", working = false, busy = false, pend = 0, flushing = null, flushTimer = null, resetArmed = false;
 
+/* ---------- device id (limits accounts per device) ---------- */
+function getDeviceId() {
+  let id = "";
+  try { id = localStorage.getItem("rr_dev") || ""; } catch (e) {}
+  if (!id) { const m = document.cookie.match(/(?:^|; )rr_dev=([^;]+)/); if (m) id = m[1]; }
+  if (!id || id.length < 16) {
+    id = (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).replace(/[^a-zA-Z0-9-]/g, "");
+  }
+  try { localStorage.setItem("rr_dev", id); } catch (e) {}
+  try { document.cookie = "rr_dev=" + id + "; max-age=31536000; path=/; SameSite=Lax"; } catch (e) {}
+  return id;
+}
+
 /* ---------- server ---------- */
 async function api(action, data) {
   let r;
   try {
-    r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, initData: tg ? tg.initData : "" }, data || {})) });
+    r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, initData: tg ? tg.initData : "", deviceId: getDeviceId() }, data || {})) });
   } catch (e) { throw new Error("No connection. Check your internet and try again."); }
   let j = null;
   try { j = await r.json(); } catch (e) {}
@@ -620,7 +633,11 @@ const energyMax = () => Math.max(1, (CFG.energyBase || 100) + (S.level - 1) * (C
 const tapValue = () => Math.max(1, (CFG.tapReward || 1) + (CFG.tapLevelStep > 0 ? Math.floor((S.level - 1) / CFG.tapLevelStep) : 0));
 const stageIndex = () => { let i = 0; STAGES.forEach((s, k) => { if (S.level >= s.lvl) i = k; }); return i; };
 const stage = () => STAGES[stageIndex()];
-const refLink = () => CFG.botLink + "ref_" + S.id;
+const refLink = () => {
+  let b = String(CFG.botLink || "").trim();
+  if (!/startapp=/i.test(b)) b += (b.includes("?") ? "&" : "?") + "startapp=";
+  return b + "ref_" + S.id;
+};
 function haptic(kind) {
   try {
     if (tg && tg.HapticFeedback) kind === "ok" ? tg.HapticFeedback.notificationOccurred("success") : tg.HapticFeedback.impactOccurred("light");
@@ -1104,7 +1121,7 @@ function gate(title, text, retry) {
     $("gate").classList.remove("show");
     loadFeed();
     startAutoAds();
-  } catch (e) { if (!e.join) gate("Could not load", e.message, true); }
+  } catch (e) { if (e.join) return; if (/per device/.test(e.message)) gate("Account limit reached", e.message, false); else gate("Could not load", e.message, true); }
 })();
 </script>
 </body>
