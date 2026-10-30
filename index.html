@@ -597,11 +597,20 @@ function getDeviceId() {
   return id;
 }
 
+/* ---------- invite code carried inside the app link (?ref=ID) ---------- */
+function refParam() {
+  let r = "";
+  try { r = new URLSearchParams(location.search).get("ref") || ""; } catch (e) {}
+  if (/^\d{1,15}$/.test(r)) { try { localStorage.setItem("rr_ref", r); } catch (e) {} return r; }
+  try { r = localStorage.getItem("rr_ref") || ""; } catch (e) {}
+  return /^\d{1,15}$/.test(r) ? r : "";
+}
+
 /* ---------- server ---------- */
 async function api(action, data) {
   let r;
   try {
-    r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, initData: tg ? tg.initData : "", deviceId: getDeviceId() }, data || {})) });
+    r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, initData: tg ? tg.initData : "", deviceId: getDeviceId(), ref: refParam() }, data || {})) });
   } catch (e) { throw new Error("No connection. Check your internet and try again."); }
   let j = null;
   try { j = await r.json(); } catch (e) {}
