@@ -378,7 +378,7 @@
       <p class="muted" style="font-size:12px;line-height:1.55;margin:6px 0 14px">Watch a short ad and earn <b class="gold" id="adRewardTxt">10 RP</b>. Stay on the ad until it finishes.</p>
       <button class="btn block ready" id="adBtn">▶ Watch Ad 1</button>
     </div>
-    <p class="note">You can watch a new ad every <span id="adCool">30</span> seconds, up to the daily limit.</p>
+    <p class="note">You can watch a new ad every <span id="adCool">30</span> seconds, up to the daily limit. Total ads watched: <b id="adsTotal">0</b>.</p>
   </section>
 
   <!-- GAME -->
@@ -412,17 +412,17 @@
     <div class="section-head"><h3>👥 Invite friends</h3></div>
     <div class="card">
       <strong style="font-size:18px">Rush together.</strong>
-      <p class="muted" style="font-size:12px;line-height:1.55;margin:6px 0 0">Share your link. You get <b class="gold" id="refRewardTxt">100 RP</b> and a notification each time a friend joins.</p>
+      <div class="muted" id="refRules" style="font-size:12px;line-height:1.8;margin-top:8px"></div>
       <div class="ref-link"><input id="referralLink" readonly aria-label="Your invite link" /><button class="btn" id="copyBtn">Copy</button></div>
       <div class="grid3">
         <div class="mini"><strong id="refCount">0</strong><small>Invites</small></div>
-        <div class="mini"><strong id="refQual">0</strong><small>Qualified</small></div>
+        <div class="mini"><strong id="refQual">0</strong><small>Finished ads</small></div>
         <div class="mini"><strong id="refPoints">0</strong><small>RP earned</small></div>
       </div>
       <button class="btn block" style="margin-top:14px" id="shareBtn">Invite friends</button>
     </div>
-    <div class="section-head"><h3>Invite bonuses</h3></div>
-    <div id="milestones"></div>
+    <div id="msSection"><div class="section-head"><h3>Invite bonuses</h3></div>
+    <div id="milestones"></div></div>
     <button class="btn ghost block" style="margin-top:16px" data-go="board" data-btab-go="rank">🏆 View leaderboard</button>
     
   </section>
@@ -449,6 +449,7 @@
       <div class="field"><label for="tonAddr">Your TON wallet address</label><input id="tonAddr" type="text" placeholder="UQ… or EQ…" autocomplete="off" autocapitalize="off" spellcheck="false" /></div>
       <div class="field"><label for="wdAmt">TON to withdraw</label>
         <div class="input-row"><input id="wdAmt" type="number" inputmode="decimal" step="any" placeholder="0.00" /><button class="btn ghost" id="wdMax">Max</button></div></div>
+      <div class="preview" id="wdAdsNote" style="margin-top:10px"></div>
       <div class="preview" id="wdPreview"></div>
       <button class="btn block ready" style="margin-top:12px" id="wdBtn">Withdraw</button>
     </div>
@@ -566,7 +567,7 @@ const BADGES = [
   { id: "s7",    icon: "🏆", name: "7-day streak", test: () => S.best >= 7 },
   { id: "pay",   icon: "💎", name: "First payout", test: () => S.withdrawals.some(w => w.status === "success") }
 ];
-const milestones = () => (CFG.milestones && CFG.milestones.length) ? CFG.milestones : [{ n: 1, rp: 100 }, { n: 5, rp: 600 }, { n: 10, rp: 1500 }];
+const milestones = () => Array.isArray(CFG.milestones) ? CFG.milestones : [];
 const MS_ICONS = ["🎟️", "🎁", "💎", "🏆", "👑", "🚀"];
 
 const $ = id => document.getElementById(id);
@@ -846,7 +847,7 @@ function ctHTML(t) {
   return '<div class="task ' + (st === "ready" ? "ready" : st === "done" ? "finished" : "") + '"><div class="t-icon">' + esc(t.icon) + '</div><div class="t-info"><strong>' + esc(t.title) + "</strong><small>+" + fmt(t.reward) + " RP" + (t.xp ? " · +" + t.xp + " XP" : "") + ends + "</small></div>" + btn + "</div>";
 }
 function renderTasks() {
-  const items = activeTasks().map(t => ({ cat: "official", st: taskState(t), html: taskHTML(t) }));
+  const items = activeTasks().map(t => ({ cat: "event", st: taskState(t), html: taskHTML(t) }));
   (S.ctasks || []).forEach(t => items.push({ cat: CAT_LABEL[t.category] ? t.category : "official", st: ctState(t), html: ctHTML(t) }));
   const open = items.filter(x => x.st !== "done");
   $("homeTasks").innerHTML = open.length ? open.slice(0, 3).map(x => x.html).join("") : '<div class="empty">All missions complete. New ones are coming soon.</div>';
@@ -972,7 +973,12 @@ function render() {
   $("gPlayed").textContent = S.gPlayed; $("gWon").textContent = S.gWon; $("gNet").textContent = (S.gNet > 0 ? "+" : "") + fmt(S.gNet);
   $("gameHistory").innerHTML = S.games.length ? S.games.map(g => '<div class="tx"><div class="top"><strong>' + (g.win ? "+" + fmt(g.payout - g.bet) : "-" + fmt(g.bet)) + ' RP</strong><span class="pill ' + (g.win ? "success" : "rejected") + '">' + (g.win ? "Win" : "Loss") + "</span></div><small>Bet " + fmt(g.bet) + " RP · " + when(g.t) + "</small></div>").join("") : '<div class="empty">No rounds yet. Place a bet and pick a bin.</div>';
 
-  $("referralLink").value = refLink(); $("refRewardTxt").textContent = fmt(CFG.refReward) + " RP";
+  $("referralLink").value = refLink();
+  $("refRules").innerHTML = "<b class=\"gold\">+" + fmt(CFG.refReward == null ? 50 : CFG.refReward) + " RP</b> when a friend joins<br><b class=\"gold\">+" + fmt(CFG.refAdsReward == null ? 100 : CFG.refAdsReward) + " RP</b> when they watch " + (CFG.refAdsNeeded || 10) + " ads<br><b class=\"gold\">+" + fmt(CFG.refWithdrawReward == null ? 50 : CFG.refWithdrawReward) + " RP</b> after their first withdrawal";
+  $("msSection").style.display = milestones().length ? "block" : "none";
+  const need = CFG.withdrawAdsRequired == null ? 10 : CFG.withdrawAdsRequired, wa = S.adsTotal || 0;
+  $("wdAdsNote").innerHTML = need > 0 ? (wa >= need ? "✅ Ads requirement done (" + wa + " ads watched)" : '📺 Watch <b>' + need + ' ads</b> to unlock withdrawals: <b>' + wa + "/" + need + '</b> <button class="link-btn" data-go="ads">Watch ads</button>') : "";
+  $("adsTotal").textContent = wa;
   $("refCount").textContent = S.refCount; $("refQual").textContent = S.refQual; $("refPoints").textContent = fmt(S.refPoints);
   $("milestones").innerHTML = milestones().map((m, i) => '<div class="milestone"><span class="m-ico">' + (MS_ICONS[i] || "🎁") + '</span><div class="grow"><strong>Invite ' + m.n + " friend" + (m.n > 1 ? "s" : "") + "</strong><br><small>+" + fmt(m.rp) + ' RP bonus</small></div><span class="' + (S.ms[m.n] ? "gold" : "muted") + '">' + Math.min(S.refQual, m.n) + "/" + m.n + "</span></div>").join("");
   $("rateLine").textContent = "Rate: " + fmt(CFG.swapRate) + " RP = 1 TON · Swap fee " + CFG.swapFee + "%";

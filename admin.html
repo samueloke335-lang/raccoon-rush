@@ -406,7 +406,7 @@
         <div class="muted" style="font-size:11px;line-height:1.5;margin-top:4px">Leave empty for public channels. For a private channel use an ID like -1001234567890.</div><div id="fIds"></div></div>
       <div class="card" style="margin-top:10px"><strong>Swap, fees and welcome</strong><div id="fRates"></div></div>
       <div class="card" style="margin-top:10px"><strong>Invite bonuses</strong>
-        <div class="muted" style="font-size:11px;line-height:1.5;margin-top:4px">Extra RP when a player has invited this many friends.</div>
+        <div class="muted" style="font-size:11px;line-height:1.5;margin-top:4px">Optional extra RP when this many invited friends have finished their ads. Remove all rows to turn it off.</div>
         <div id="msList"></div><button class="btn ghost block" style="margin-top:10px" id="msAdd">+ Add bonus</button></div>
       <div class="card" style="margin-top:10px"><strong>Taps, energy and levels</strong><div id="fTaps"></div></div>
       <div class="card" style="margin-top:10px"><strong>Daily check-in rewards (RP)</strong><div id="fCheckin"></div></div>
@@ -448,7 +448,9 @@ const SCALARS = {
   fRates: [
     { k: "swapRate", l: "Swap rate (RP for 1 TON)" }, { k: "swapFee", l: "Swap fee (%)" },
     { k: "withdrawFee", l: "Withdrawal fee (TON)" }, { k: "minWithdraw", l: "Minimum withdrawal (TON)" },
-    { k: "refReward", l: "Referral reward (RP per friend)" }, { k: "maxAccountsPerDevice", l: "Accounts allowed per device (0 = no limit)" }, { k: "welcomeBonus", l: "Welcome bonus for new players (RP)" }
+    { k: "withdrawAdsRequired", l: "Ads a player must watch before withdrawing (0 = none)" },
+    { k: "refReward", l: "Referral: RP when a friend joins" }, { k: "refAdsReward", l: "Referral: RP when the friend has watched the ads" },
+    { k: "refAdsNeeded", l: "Referral: how many ads the friend must watch" }, { k: "refWithdrawReward", l: "Referral: RP after the friend's first withdrawal" }, { k: "maxAccountsPerDevice", l: "Accounts allowed per device (0 = no limit)" }, { k: "welcomeBonus", l: "Welcome bonus for new players (RP)" }
   ],
   fTaps: [
     { k: "tapReward", l: "RP per tap at level 1" }, { k: "tapLevelStep", l: "Every how many levels +1 RP per tap (0 = never)" },
