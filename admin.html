@@ -334,6 +334,7 @@
       <button class="chipbtn" data-tab="tasks">Tasks</button>
       <button class="chipbtn" data-tab="broadcast">Broadcast</button>
       <button class="chipbtn" data-tab="settings">Settings</button>
+      <button class="chipbtn" data-tab="activity">Activity</button>
       <button class="chipbtn" data-tab="users">Users</button>
       <button class="chipbtn" data-tab="security">Password</button>
     </div>
@@ -420,6 +421,11 @@
       <button class="btn block ready" style="margin-top:12px" id="saveBtn">Save settings</button>
     </div>
 
+    <div id="tab_activity" class="tab" style="display:none">
+      <div class="input-row"><input class="mini-in" id="act_uid" inputmode="numeric" placeholder="Player Telegram ID (leave empty for everyone)" /><button class="btn" id="actGo">Show</button></div>
+      <div id="actList"></div>
+    </div>
+
     <div id="tab_users" class="tab" style="display:none">
       <div class="input-row"><input class="mini-in" id="uq" placeholder="Search by Telegram ID, name or username" /><button class="btn" id="uGo">Search</button></div>
       <div id="ulist"></div>
@@ -447,7 +453,7 @@ const SCALARS = {
   fIds: [{ k: "channelId", l: "Channel ID", text: 1 }, { k: "payChannelId", l: "Payment channel ID", text: 1 }],
   fRates: [
     { k: "swapRate", l: "Swap rate (RP for 1 TON)" }, { k: "swapFee", l: "Swap fee (%)" },
-    { k: "withdrawFee", l: "Withdrawal fee (TON)" }, { k: "minWithdraw", l: "Minimum withdrawal (TON)" },
+    { k: "withdrawFeePct", l: "Withdrawal fee (%) taken from every withdrawal" }, { k: "minWithdraw", l: "Minimum withdrawal (TON)" }, { k: "maxWithdraw", l: "Maximum withdrawal (TON, 0 = no limit)" },
     { k: "withdrawAdsRequired", l: "Ads a player must watch before withdrawing (0 = none)" },
     { k: "refReward", l: "Referral: RP when a friend joins" }, { k: "refAdsReward", l: "Referral: RP when the friend has watched the ads" },
     { k: "refAdsNeeded", l: "Referral: how many ads the friend must watch" }, { k: "refWithdrawReward", l: "Referral: RP after the friend's first withdrawal" }, { k: "maxAccountsPerDevice", l: "Accounts allowed per device (0 = no limit)" }, { k: "welcomeBonus", l: "Welcome bonus for new players (RP)" }
@@ -524,6 +530,7 @@ function openTab(name) {
   if (name === "broadcast") loadBroadcasts();
   if (name === "settings") loadSettings();
   if (name === "users") loadUsers();
+  if (name === "activity") loadActivity();
 }
 async function loadOverview() {
   try {
@@ -533,7 +540,8 @@ async function loadOverview() {
     $("stats").innerHTML = card("Players", fmt(s.users)) + card("New in 24h", fmt(s.newToday)) +
       card("RP held by players", fmt(s.points)) + card("TON held by players", fmtTon(s.ton), "ton") +
       card("Pending withdrawals", fmt(s.pending), s.pending > 0 ? "warn" : "") + card("TON to send", fmtTon(s.pendingTon), "ton") +
-      card("TON paid out", fmtTon(s.paidTon), "ton") + card("Game profit (RP)", (profit >= 0 ? "+" : "") + fmt(profit));
+      card("TON paid out", fmtTon(s.paidTon), "ton") + card("Fees earned (TON)", fmtTon(s.feesTon), "ton") +
+      card("Active in 24h", fmt(s.active24h)) + card("Ads watched", fmt(s.adsTotal)) + card("Game profit (RP)", (profit >= 0 ? "+" : "") + fmt(profit));
     setPend(s.pending);
   } catch (e) { notify(e.message); }
 }
@@ -691,7 +699,17 @@ function adjForm(id) {
 async function loadUsers() {
   try {
     const list = (await call("users", { q: $("uq").value.trim() })).list;
-    $("ulist").innerHTML = list.length ? list.map(u => '<div class="tx"><div class="top"><strong>' + esc(u.name) + (u.username ? " @" + esc(u.username) : "") + '</strong><span class="pill ' + (u.banned ? "rejected" : "success") + '">' + (u.banned ? "Banned" : "Active") + "</span></div><small>ID " + u.id + " · Level " + u.level + " · " + u.refCount + " invites · joined " + when(u.joined) + "</small><small>" + fmt(u.points) + " RP · " + fmtTon(u.ton) + " TON · earned " + fmt(u.lifetime) + ' RP total</small><div class="acts"><button class="btn ' + (u.banned ? "" : "ghost") + '" data-ban="' + u.id + '" data-to="' + (u.banned ? 0 : 1) + '">' + (u.banned ? "Unban" : "Ban user") + '</button><button class="btn ghost" data-adjopen="' + u.id + '">Adjust balance</button></div>' + adjForm(u.id) + "</div>").join("") : '<div class="empty" style="margin-top:10px">No players found.</div>';
+    $("ulist").innerHTML = list.length ? list.map(u => '<div class="tx"><div class="top"><strong>' + esc(u.name) + (u.username ? " @" + esc(u.username) : "") + '</strong><span class="pill ' + (u.banned ? "rejected" : "success") + '">' + (u.banned ? "Banned" : "Active") + "</span></div><small>ID " + u.id + " · Level " + u.level + " · " + u.refCount + " invites · joined " + when(u.joined) + "</small><small>Last seen " + when(u.lastSeen) + " · " + fmt(u.taps) + " taps · " + fmt(u.adsTotal) + " ads (" + u.adsToday + " today) · " + u.games + " games · " + u.withdrawals + " withdrawals" + (u.refBy ? " · invited by " + u.refBy : "") + "</small><small>" + fmt(u.points) + " RP · " + fmtTon(u.ton) + " TON · earned " + fmt(u.lifetime) + ' RP total</small><div class="acts"><button class="btn ' + (u.banned ? "" : "ghost") + '" data-ban="' + u.id + '" data-to="' + (u.banned ? 0 : 1) + '">' + (u.banned ? "Unban" : "Ban user") + '</button><button class="btn ghost" data-adjopen="' + u.id + '">Adjust balance</button><button class="btn ghost" data-actuser="' + u.id + '">Activity</button></div>' + adjForm(u.id) + "</div>").join("") : '<div class="empty" style="margin-top:10px">No players found.</div>';
+  } catch (e) { notify(e.message); }
+}
+
+/* activity */
+const ACT_ICON = { join: "🆕", withdraw: "💸", swap: "🔄", referral: "👥", admin: "🛠️", game: "🎰", task: "✅" };
+async function loadActivity() {
+  try {
+    const uid = $("act_uid").value.trim();
+    const list = (await call("activity", { uid })).list;
+    $("actList").innerHTML = list.length ? list.map(x => '<div class="notif"><div class="n-ico">' + (ACT_ICON[x.type] || "•") + '</div><div><strong>' + esc(x.name) + ' <span class="muted" style="font-weight:400;font-size:11px">ID ' + x.uid + '</span></strong><p>' + esc(x.text) + '</p><time>' + when(x.t) + '</time></div></div>').join("") : '<div class="empty" style="margin-top:10px">No activity found.</div>';
   } catch (e) { notify(e.message); }
 }
 
@@ -712,6 +730,7 @@ document.addEventListener("click", e => {
   if ((el = t.closest("[data-reject]"))) return decide(el.dataset.reject, false);
   if ((el = t.closest("[data-copy]"))) { navigator.clipboard && navigator.clipboard.writeText(el.dataset.copy).then(() => notify("Address copied.")).catch(() => {}); return; }
   if ((el = t.closest("[data-ban]"))) { call("ban", { uid: el.dataset.ban, banned: el.dataset.to === "1" }).then(loadUsers).catch(e => notify(e.message)); return; }
+  if ((el = t.closest("[data-actuser]"))) { $("act_uid").value = el.dataset.actuser; return openTab("activity"); }
   if ((el = t.closest("[data-adjopen]"))) { const f = $("adj_" + el.dataset.adjopen); f.style.display = f.style.display === "none" ? "block" : "none"; return; }
   if ((el = t.closest("[data-adjgo]"))) {
     const id = el.dataset.adjgo;
@@ -753,6 +772,8 @@ $("taskDelete").addEventListener("click", deleteTask);
 $("t_kind").addEventListener("change", taskKindUI);
 $("bcSend").addEventListener("click", sendBroadcast);
 $("uGo").addEventListener("click", loadUsers);
+$("actGo").addEventListener("click", loadActivity);
+$("act_uid").addEventListener("keydown", e => { if (e.key === "Enter") loadActivity(); });
 $("uq").addEventListener("keydown", e => { if (e.key === "Enter") loadUsers(); });
 $("npBtn").addEventListener("click", changePw);
 buildForm();

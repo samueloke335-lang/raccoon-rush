@@ -581,7 +581,7 @@ const tg = window.Telegram && window.Telegram.WebApp;
 const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-let S = null, CFG = { swapRate: 10000, swapFee: 2, withdrawFee: 0.05, minWithdraw: 0.5, refReward: 100, winChance: 45, multiplier: 2, minBet: 10, maxBet: 5000, botLink: "", channelLink: "", payChannelLink: "", tapLevelStep: 2, adReward: 10, adDailyLimit: 20, adCooldown: 30, levelBonus: 100, tapsPerXp: 10 };
+let S = null, CFG = { swapRate: 10000, swapFee: 2, withdrawFeePct: 5, maxWithdraw: 0, minWithdraw: 0.5, refReward: 100, winChance: 45, multiplier: 2, minBet: 10, maxBet: 5000, botLink: "", channelLink: "", payChannelLink: "", tapLevelStep: 2, adReward: 10, adDailyLimit: 20, adCooldown: 30, levelBonus: 100, tapsPerXp: 10 };
 let currentPage = "home", working = false, busy = false, pend = 0, flushing = null, flushTimer = null, resetArmed = false;
 
 /* ---------- device id (limits accounts per device) ---------- */
@@ -815,8 +815,9 @@ function renderSwapPreview() {
   $("swapPreview").innerHTML = "You get <b>" + fmtTon(q.net) + " TON</b><br>Swap fee " + CFG.swapFee + "% = " + fmtTon(q.fee) + " TON";
 }
 function renderWdPreview() {
-  const amt = Number($("wdAmt").value) || 0, net = Math.max(0, r6(amt - CFG.withdrawFee));
-  $("wdPreview").innerHTML = "Withdrawal fee <b>" + fmtTon(CFG.withdrawFee) + " TON</b> · You receive <b>" + fmtTon(net) + " TON</b><br>Minimum withdrawal: " + fmtTon(CFG.minWithdraw) + " TON";
+  const amt = Number($("wdAmt").value) || 0, pct = CFG.withdrawFeePct == null ? 0 : CFG.withdrawFeePct, fee = r6(amt * pct / 100), net = Math.max(0, r6(amt - fee));
+  const mx = CFG.maxWithdraw > 0 ? " · Maximum: " + fmtTon(CFG.maxWithdraw) + " TON" : "";
+  $("wdPreview").innerHTML = "Withdrawal fee <b>" + pct + "%</b> = " + fmtTon(fee) + " TON · You receive <b>" + fmtTon(net) + " TON</b><br>Minimum: " + fmtTon(CFG.minWithdraw) + " TON" + mx;
 }
 
 /* ---------- tasks ---------- */
