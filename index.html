@@ -643,11 +643,9 @@ const energyMax = () => Math.max(1, (CFG.energyBase || 100) + (S.level - 1) * (C
 const tapValue = () => Math.max(1, (CFG.tapReward || 1) + (CFG.tapLevelStep > 0 ? Math.floor((S.level - 1) / CFG.tapLevelStep) : 0));
 const stageIndex = () => { let i = 0; STAGES.forEach((s, k) => { if (S.level >= s.lvl) i = k; }); return i; };
 const stage = () => STAGES[stageIndex()];
-const refLink = () => {
-  let b = String(CFG.botLink || "").trim();
-  if (!/startapp=/i.test(b)) b += (b.includes("?") ? "&" : "?") + "startapp=";
-  return b + "ref_" + S.id;
-};
+/* invite link: fixed in this file so nothing can change it */
+const REF_BASE = "https://t.me/RACCOONRUSHapp?start=ref_";
+const refLink = () => REF_BASE + S.id;
 function haptic(kind) {
   try {
     if (tg && tg.HapticFeedback) kind === "ok" ? tg.HapticFeedback.notificationOccurred("success") : tg.HapticFeedback.impactOccurred("light");
